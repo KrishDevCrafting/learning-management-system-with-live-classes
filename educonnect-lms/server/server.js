@@ -1,14 +1,13 @@
 import express from "express";
 import http from "http";
 import courseRoutes from "./routes/courseRoutes.js";
-import lessonRoutes from "./routes/lessonRoutes.js"; // 👈 Yeh line add kijiye
-
+import lessonRoutes from "./routes/lessonRoutes.js"; 
 import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
 import { connectDB } from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
-import courseRoutes from "./routes/courseRoutes.js";
+
 dotenv.config();
 
 const app = express();
