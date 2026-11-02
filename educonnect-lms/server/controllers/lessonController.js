@@ -1,5 +1,6 @@
 import Lesson from "../models/Lesson.js";
 import Course from "../models/Course.js";
+import { videoQueue } from "../config/queue.js";
 
 // @desc    Add a lesson to a course
 // @route   POST /api/lessons/:courseId
@@ -196,6 +197,63 @@ export const deleteLesson = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in deleteLesson:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Server Error",
+    });
+  }
+};
+
+// @desc    Upload video for a lesson (Asynchronously processed via BullMQ)
+// @route   POST /api/lessons/:id/upload-video
+// @access  Private (Instructor, Admin)
+export const uploadLessonVideo = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Please upload a video file",
+      });
+    }
+
+    const lesson = await Lesson.findById(id).populate("course");
+    if (!lesson) {
+      return res.status(404).json({
+        success: false,
+        message: "Lesson not found",
+      });
+    }
+
+    // Ownership check: Only course instructor or admin can upload
+    if (
+      lesson.course.instructor.toString() !== req.user.id &&
+      req.user.role !== "admin"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to upload video for this course",
+      });
+    }
+
+    // Push job to BullMQ queue for background processing
+    await videoQueue.add("process-video", {
+      lessonId: lesson._id,
+      filePath: req.file.path,
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+    });
+
+    // Respond immediately with 202 Accepted (Non-blocking)
+    res.status(202).json({
+      success: true,
+      message: "Video uploaded successfully. Background processing initiated.",
+      lessonId: lesson._id,
+      status: "processing",
+    });
+  } catch (error) {
+    console.error("Error in uploadLessonVideo:", error);
     res.status(500).json({
       success: false,
       message: error.message || "Server Error",

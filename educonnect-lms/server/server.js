@@ -1,13 +1,13 @@
 import express from "express";
 import http from "http";
 import courseRoutes from "./routes/courseRoutes.js";
-import lessonRoutes from "./routes/lessonRoutes.js"; 
+import lessonRoutes from "./routes/lessonRoutes.js";
 import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
 import { connectDB } from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
-
+import "./workers/videoWorker.js";
 dotenv.config();
 
 const app = express();
@@ -51,6 +51,7 @@ io.on("connection", (socket) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/course", courseRoutes);
 app.use("/api/lessons", lessonRoutes);
+app.use("/upload", express.static("upload"));
 // Health check endpoint
 app.get("/api/health", (req, res) => {
   res.json({

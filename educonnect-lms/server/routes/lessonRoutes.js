@@ -1,10 +1,12 @@
 import express from "express";
+import { uploadVideo } from "../middleware/uploadMiddleware.js";
 import {
   addLesson,
   getLessonsByCourse,
   getLessonById,
   updateLesson,
   deleteLesson,
+  uploadLessonVideo,
 } from "../controllers/lessonController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
 
@@ -18,5 +20,10 @@ router.get("/:id", getLessonById);
 router.post("/:courseId", protect, authorize("instructor", "admin"), addLesson);
 router.put("/:id", protect, authorize("instructor", "admin"), updateLesson);
 router.delete("/:id", protect, authorize("instructor", "admin"), deleteLesson);
-
+router.post(
+  "/:id/upload-video",
+  protect,
+  authorize("instructor", "admin"),
+  uploadLessonVideo,
+);
 export default router;
