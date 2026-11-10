@@ -10,7 +10,7 @@ import { connectDB } from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import "./workers/videoWorker.js";
 dotenv.config();
-
+import liveClassRoutes from "./routes/liveClassRoutes.js";
 const app = express();
 const server = http.createServer(app);
 
@@ -43,6 +43,18 @@ io.on("connection", (socket) => {
     socket.to(classId).emit("user-joined", { user, socketId: socket.id });
   });
 
+  // 2. Chat Message (join-class ke BAHAR, connection ke ANDAR)
+  socket.on("send-message", ({ classId, message, user }) => {
+    io.to(classId).emit("receive-message", {
+      message,
+      user,
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    });
+  });
+
   socket.on("disconnect", () => {
     console.log(`🔌 Client disconnected: ${socket.id}`);
   });
@@ -53,6 +65,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/course", courseRoutes);
 app.use("/api/lessons", lessonRoutes);
 app.use("/api/enrollment", enrollmentRoutes);
+app.use("/api/live-class", liveClassRoutes);
 app.use("/upload", express.static("upload"));
 // Health check endpoint
 app.get("/api/health", (req, res) => {

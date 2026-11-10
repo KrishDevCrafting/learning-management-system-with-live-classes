@@ -296,3 +296,4 @@ export const getCourseEnrollments = async (req, res) => {
     });
   }
 };
+
