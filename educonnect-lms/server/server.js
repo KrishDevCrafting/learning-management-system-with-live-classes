@@ -2,6 +2,7 @@ import express from "express";
 import http from "http";
 import courseRoutes from "./routes/courseRoutes.js";
 import lessonRoutes from "./routes/lessonRoutes.js";
+import enrollmentRoutes from "./routes/enrollmentRoutes.js";
 import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -51,6 +52,7 @@ io.on("connection", (socket) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/course", courseRoutes);
 app.use("/api/lessons", lessonRoutes);
+app.use("/api/enrollment", enrollmentRoutes);
 app.use("/upload", express.static("upload"));
 // Health check endpoint
 app.get("/api/health", (req, res) => {
