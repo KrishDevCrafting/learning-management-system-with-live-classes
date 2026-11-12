@@ -1,11 +1,17 @@
 import React from "react";
+import Sidebar from "./Components/Sidebar";
+import Dashboard from "./Components/Dashboard";
 
-const App = () => {
+export default function App() {
   return (
-    <div>
-      <h1 className="text-4xl text-amber-500">Hello REACT!</h1>
+    <div className="flex min-h-screen bg-slate-50 antialiased font-sans">
+      {/* 1. Left Sidebar Navigation */}
+      <Sidebar />
+
+      {/* 2. Main Dashboard Content (Offset by Sidebar width) */}
+      <div className="pl-64 flex-1 flex flex-col min-w-0">
+        <Dashboard />
+      </div>
     </div>
   );
-};
-
-export default App;
+}
