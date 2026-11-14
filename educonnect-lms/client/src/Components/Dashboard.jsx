@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import {
   Search,
   Bell,
@@ -129,7 +130,13 @@ export default function Dashboard() {
                   Welcome back, {user?.name || "Krish"} 👋
                 </h1>
                 <p className="text-sm text-slate-500">
-                  You have <span className="font-semibold text-blue-600">1 live class</span> scheduled today at <strong className="text-slate-800">8:00 PM (IST)</strong> • 148 students registered and prepared.
+                  You have{" "}
+                  <span className="font-semibold text-blue-600">
+                    1 live class
+                  </span>{" "}
+                  scheduled today at{" "}
+                  <strong className="text-slate-800">8:00 PM (IST)</strong> •
+                  148 students registered and prepared.
                 </p>
               </div>
 
@@ -281,7 +288,9 @@ export default function Dashboard() {
                     </h3>
                     <p className="text-xs text-slate-500 flex items-center gap-1.5 truncate">
                       <Play className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      <span className="truncate">Next: {course.nextLesson}</span>
+                      <span className="truncate">
+                        Next: {course.nextLesson}
+                      </span>
                     </p>
                   </div>
 
@@ -316,11 +325,14 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </div>
-
-                    <button className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1 shadow-xs transition">
+                    
+                    <Link
+                      to={`/course/${course.id || course._id}/learn`}
+                      className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1 shadow-xs transition"
+                    >
                       <span>Resume</span>
                       <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -378,7 +390,8 @@ export default function Dashboard() {
                   Real-Time WebSockets & Node.js System Architecture with Krish
                 </h3>
                 <span className="text-xs text-slate-500 mt-0.5">
-                  Instructor: Krish Singh • Course: Full-Stack WebSockets Mastery
+                  Instructor: Krish Singh • Course: Full-Stack WebSockets
+                  Mastery
                 </span>
               </div>
             </div>
@@ -393,4 +406,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
