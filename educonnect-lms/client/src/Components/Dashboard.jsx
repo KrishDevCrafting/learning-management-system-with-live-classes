@@ -396,10 +396,13 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <button className="h-10 px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 shadow-md shadow-red-500/20 transition active:scale-[0.98]">
+            <Link
+              to="/live/LC-LIVE-892"
+              className="h-10 px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 shadow-md shadow-red-500/20 transition active:scale-[0.98]"
+            >
               <Play className="w-4 h-4 fill-white" />
               <span>Join Stream Console</span>
-            </button>
+            </Link>
           </div>
         </section>
       </main>

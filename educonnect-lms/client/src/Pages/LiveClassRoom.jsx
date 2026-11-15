@@ -1,0 +1,456 @@
+import React, { useState, useEffect, useRef } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { io } from "socket.io-client";
+import { useAuth } from "../Context/AuthContext";
+import {
+  ArrowLeft,
+  Radio,
+  Users,
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  MonitorUp,
+  Hand,
+  PhoneOff,
+  Send,
+  MessageSquare,
+  Sparkles,
+  ShieldCheck,
+  Volume2,
+  CheckCircle2,
+} from "lucide-react";
+
+export default function LiveClassRoom() {
+  const { roomId = "LC-LIVE-892" } = useParams();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // Socket & Chat state
+  const socketRef = useRef(null);
+  const chatBottomRef = useRef(null);
+  const [inputMessage, setInputMessage] = useState("");
+  const [messages, setMessages] = useState([
+    {
+      user: "EduConnect System",
+      message: "Welcome to the live interactive session! Please maintain professional decorum.",
+      time: "Just now",
+      isSystem: true,
+    },
+    {
+      user: "Dr. Sarah Jenkins",
+      message: "Hello everyone! Today we are exploring Distributed Caching & Sharding.",
+      time: "10:02 AM",
+      isInstructor: true,
+    },
+  ]);
+
+  // Media & Interaction states
+  const [isMicOn, setIsMicOn] = useState(false);
+  const [isVideoOn, setIsVideoOn] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isHandRaised, setIsHandRaised] = useState(false);
+  const [viewerCount, setViewerCount] = useState(38);
+
+  const currentUserName = user?.name || "Krish";
+
+  // Socket Connection setup
+  useEffect(() => {
+    // Connect to LMS backend socket
+    const s = io("http://localhost:5000", {
+      transports: ["websocket", "polling"],
+    });
+    socketRef.current = s;
+
+    // Join the specified live class room
+    s.emit("join-class", {
+      classId: roomId,
+      user: currentUserName,
+    });
+
+    // Listen for incoming broadcasted messages
+    s.on("receive-message", (incomingMsg) => {
+      setMessages((prev) => [...prev, incomingMsg]);
+    });
+
+    // Listen for peer join notifications
+    s.on("user-joined", (data) => {
+      const joinedName =
+        typeof data?.user === "string"
+          ? data.user
+          : data?.user?.name || "A student";
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          user: "EduConnect System",
+          message: `${joinedName} joined the lecture.`,
+          time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          isSystem: true,
+        },
+      ]);
+      setViewerCount((prev) => prev + 1);
+    });
+
+    return () => {
+      s.disconnect();
+    };
+  }, [roomId, currentUserName]);
+
+  // Auto-scroll chat to latest message
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Handle message sending
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (!inputMessage.trim() || !socketRef.current) return;
+
+    socketRef.current.emit("send-message", {
+      classId: roomId,
+      message: inputMessage.trim(),
+      user: currentUserName,
+    });
+
+    setInputMessage("");
+  };
+
+  return (
+    <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col overflow-hidden font-sans select-none">
+      {/* 1. TOP HEADER BAR */}
+      <header className="h-14 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-5 flex items-center justify-between z-20 shrink-0">
+        <div className="flex items-center gap-4">
+          <Link
+            to="/"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Dashboard</span>
+          </Link>
+
+          <div className="h-4 w-px bg-slate-800" />
+
+          {/* Live indicator badge */}
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+            </span>
+            <span className="text-xs font-black uppercase tracking-wider text-red-500 flex items-center gap-1">
+              <Radio className="w-3.5 h-3.5" />
+              LIVE
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <h1 className="text-sm font-bold text-white tracking-tight truncate max-w-md">
+              Full-Stack Architecture & Distributed Real-Time Systems
+            </h1>
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700/60">
+              {roomId}
+            </span>
+          </div>
+        </div>
+
+        {/* Right Header Status */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Encrypted Room</span>
+          </div>
+
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/70 text-slate-300 text-xs font-semibold">
+            <Users className="w-3.5 h-3.5 text-blue-400" />
+            <span>{viewerCount} Watching</span>
+          </div>
+        </div>
+      </header>
+
+      {/* 2. MAIN SPLIT BODY */}
+      <div className="flex-1 flex min-h-0 relative">
+        {/* LEFT / CENTER: VIDEO STREAM STAGE (75%) */}
+        <section className="flex-1 flex flex-col bg-slate-950 relative min-w-0">
+          {/* Main Visual Stream Display */}
+          <div className="flex-1 relative flex items-center justify-center p-4 min-h-0">
+            <div className="w-full h-full max-w-6xl rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800/80 shadow-2xl relative overflow-hidden flex flex-col items-center justify-center">
+              {/* Grid Background Effect */}
+              <div
+                className="absolute inset-0 opacity-20 pointer-events-none"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at 1px 1px, #3b82f6 1px, transparent 0)",
+                  backgroundSize: "32px 32px",
+                }}
+              />
+
+              {/* Watermark Branding */}
+              <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+                <div className="px-3 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-white text-[11px] font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                  <span>EduConnect Live • 1080p 60fps HD</span>
+                </div>
+              </div>
+
+              {/* Hand Raised Banner */}
+              {isHandRaised && (
+                <div className="absolute top-4 right-4 z-10 animate-bounce">
+                  <div className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 text-xs font-extrabold flex items-center gap-1.5 shadow-lg shadow-amber-500/30">
+                    <Hand className="w-4 h-4 fill-slate-950" />
+                    <span>Your Hand is Raised</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Instructor Presentation Simulator */}
+              <div className="text-center z-10 max-w-lg px-6">
+                <div className="w-24 h-24 mx-auto mb-4 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-500 p-1 shadow-2xl shadow-blue-500/20">
+                  <div className="w-full h-full rounded-[22px] bg-slate-900 flex items-center justify-center text-3xl font-black text-blue-400">
+                    SJ
+                  </div>
+                </div>
+                <h3 className="text-lg font-bold text-white mb-1">
+                  Dr. Sarah Jenkins
+                </h3>
+                <p className="text-xs text-slate-400 mb-4 flex items-center justify-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+                  <span>Speaking: Microservices vs Event-Driven Architecture</span>
+                </p>
+
+                {/* Animated Audio Visualizer Waves */}
+                <div className="flex items-center justify-center gap-1 h-8">
+                  {[40, 80, 55, 95, 30, 70, 100, 60, 45, 85, 35].map(
+                    (val, i) => (
+                      <span
+                        key={i}
+                        className="w-1 bg-blue-500 rounded-full animate-pulse"
+                        style={{
+                          height: `${val}%`,
+                          animationDelay: `${i * 120}ms`,
+                          animationDuration: "800ms",
+                        }}
+                      />
+                    )
+                  )}
+                </div>
+              </div>
+
+              {/* Student Self Thumbnail (Picture-in-Picture) */}
+              <div className="absolute bottom-5 right-5 w-48 h-32 rounded-xl bg-slate-800/90 border border-slate-700/80 shadow-xl overflow-hidden flex flex-col justify-between p-2.5 backdrop-blur-md">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-300">
+                    You ({currentUserName})
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {isMicOn ? (
+                      <Mic className="w-3 h-3 text-emerald-400" />
+                    ) : (
+                      <MicOff className="w-3 h-3 text-red-400" />
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex-1 flex items-center justify-center">
+                  {isVideoOn ? (
+                    <div className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Cam Active</span>
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-sm text-slate-300">
+                      {currentUserName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-[9px] text-slate-400 truncate">
+                  {isVideoOn ? "Camera on" : "Camera off"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* BOTTOM FLOATING CONTROL DOCK */}
+          <div className="h-20 bg-slate-900/95 border-t border-slate-800/90 flex items-center justify-center px-6 shrink-0">
+            <div className="flex items-center gap-3">
+              {/* Mic Button */}
+              <button
+                onClick={() => setIsMicOn(!isMicOn)}
+                title={isMicOn ? "Mute Mic" : "Unmute Mic"}
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-lg ${
+                  isMicOn
+                    ? "bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700"
+                    : "bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/40"
+                }`}
+              >
+                {isMicOn ? (
+                  <Mic className="w-5 h-5" />
+                ) : (
+                  <MicOff className="w-5 h-5" />
+                )}
+              </button>
+
+              {/* Camera Button */}
+              <button
+                onClick={() => setIsVideoOn(!isVideoOn)}
+                title={isVideoOn ? "Turn off video" : "Start video"}
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-lg ${
+                  isVideoOn
+                    ? "bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700"
+                    : "bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/40"
+                }`}
+              >
+                {isVideoOn ? (
+                  <Video className="w-5 h-5" />
+                ) : (
+                  <VideoOff className="w-5 h-5" />
+                )}
+              </button>
+
+              {/* Screen Share Button */}
+              <button
+                onClick={() => setIsScreenSharing(!isScreenSharing)}
+                title="Share Screen"
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-lg ${
+                  isScreenSharing
+                    ? "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/30"
+                    : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
+                }`}
+              >
+                <MonitorUp className="w-5 h-5" />
+              </button>
+
+              {/* Raise Hand Button */}
+              <button
+                onClick={() => setIsHandRaised(!isHandRaised)}
+                title={isHandRaised ? "Lower Hand" : "Raise Hand"}
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-lg ${
+                  isHandRaised
+                    ? "bg-amber-500 text-slate-950 font-bold shadow-amber-500/30"
+                    : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
+                }`}
+              >
+                <Hand className="w-5 h-5" />
+              </button>
+
+              <div className="h-8 w-px bg-slate-800 mx-2" />
+
+              {/* Leave Call Button */}
+              <button
+                onClick={() => navigate("/")}
+                title="Leave Session"
+                className="px-5 h-12 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-red-600/30 transition active:scale-95"
+              >
+                <PhoneOff className="w-4 h-4" />
+                <span>Leave Class</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* RIGHT: REAL-TIME SOCKET.IO CHAT PANEL (25%) */}
+        <aside className="w-80 lg:w-96 bg-slate-900 border-l border-slate-800 flex flex-col shrink-0">
+          {/* Chat Header */}
+          <div className="h-14 px-4 border-b border-slate-800 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-blue-400" />
+              <h2 className="text-xs font-bold text-white uppercase tracking-wider">
+                Live Chat & Q&A
+              </h2>
+            </div>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+              Socket.io
+            </span>
+          </div>
+
+          {/* Chat Messages Scrollable Feed */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0 text-xs">
+            {messages.map((msg, index) => {
+              // System Message Style
+              if (msg.isSystem) {
+                return (
+                  <div
+                    key={index}
+                    className="py-1 px-3 rounded-lg bg-slate-800/60 border border-slate-800 text-center text-[11px] text-slate-400"
+                  >
+                    <span>{msg.message}</span>
+                  </div>
+                );
+              }
+
+              const isMe = msg.user === currentUserName;
+
+              return (
+                <div
+                  key={index}
+                  className={`flex flex-col ${
+                    isMe ? "items-end" : "items-start"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-1 px-1">
+                    <span
+                      className={`text-[11px] font-bold ${
+                        isMe
+                          ? "text-blue-400"
+                          : msg.isInstructor
+                          ? "text-amber-400 flex items-center gap-1"
+                          : "text-slate-300"
+                      }`}
+                    >
+                      {msg.user}
+                      {msg.isInstructor && (
+                        <span className="px-1 py-0.2 rounded text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                          Host
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {msg.time}
+                    </span>
+                  </div>
+
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed ${
+                      isMe
+                        ? "bg-blue-600 text-white rounded-br-xs shadow-md shadow-blue-600/20"
+                        : "bg-slate-800 text-slate-200 rounded-bl-xs border border-slate-700/60"
+                    }`}
+                  >
+                    {msg.message}
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={chatBottomRef} />
+          </div>
+
+          {/* Chat Input Field */}
+          <form
+            onSubmit={handleSendMessage}
+            className="p-3 bg-slate-900 border-t border-slate-800 shrink-0"
+          >
+            <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 focus-within:border-blue-500 transition">
+              <input
+                type="text"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                placeholder="Ask a question or say hi..."
+                className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-hidden"
+              />
+              <button
+                type="submit"
+                disabled={!inputMessage.trim()}
+                className="w-8 h-8 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 text-white flex items-center justify-center transition shadow-xs"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </form>
+        </aside>
+      </div>
+    </div>
+  );
+}

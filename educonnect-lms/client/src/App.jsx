@@ -5,6 +5,7 @@ import Dashboard from "./Components/Dashboard";
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
 import CourseWatch from "./Pages/CourseWatch";
+import LiveClassRoom from "./Pages/LiveClassRoom";
 
 export default function App() {
   return (
@@ -13,8 +14,10 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* 2. Standalone Classroom Video Stage (No Sidebar clutter) */}
+      {/* 2. Standalone Immersive Video Classrooms (No Sidebar clutter) */}
       <Route path="/course/:id/learn" element={<CourseWatch />} />
+      <Route path="/live/:roomId" element={<LiveClassRoom />} />
+      <Route path="/live" element={<LiveClassRoom />} />
 
       {/* 3. Main LMS Workspace (With Left Sidebar Navigation) */}
       <Route
@@ -27,7 +30,6 @@ export default function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/my-learning" element={<Dashboard />} />
                 <Route path="/courses" element={<Dashboard />} />
-                <Route path="/live" element={<Dashboard />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </div>
