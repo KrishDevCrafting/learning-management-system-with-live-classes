@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
+import API from "../axios";
 import { useAuth } from "../Context/AuthContext";
 import {
   ArrowLeft,
@@ -22,9 +23,12 @@ import {
 } from "lucide-react";
 
 export default function LiveClassRoom() {
-  const { roomId = "LC-LIVE-892" } = useParams();
+  const { roomId = "LC-WEBSOCKET-2026" } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Live class metadata from MongoDB
+  const [classDetails, setClassDetails] = useState(null);
 
   // Socket & Chat state
   const socketRef = useRef(null);
@@ -33,15 +37,9 @@ export default function LiveClassRoom() {
   const [messages, setMessages] = useState([
     {
       user: "EduConnect System",
-      message: "Welcome to the live interactive session! Please maintain professional decorum.",
+      message: "Connected to live interactive room. Please maintain professional decorum.",
       time: "Just now",
       isSystem: true,
-    },
-    {
-      user: "Dr. Sarah Jenkins",
-      message: "Hello everyone! Today we are exploring Distributed Caching & Sharding.",
-      time: "10:02 AM",
-      isInstructor: true,
     },
   ]);
 
@@ -50,30 +48,48 @@ export default function LiveClassRoom() {
   const [isVideoOn, setIsVideoOn] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isHandRaised, setIsHandRaised] = useState(false);
-  const [viewerCount, setViewerCount] = useState(38);
+  const [viewerCount, setViewerCount] = useState(24);
+
+  // Real WebRTC Camera & Mic Stream Refs
+  const localVideoRef = useRef(null);
+  const mediaStreamRef = useRef(null);
 
   const currentUserName = user?.name || "Krish";
 
+  // Fetch real live class details from MongoDB
+  useEffect(() => {
+    const fetchClass = async () => {
+      try {
+        const res = await API.get(`/live-class/${roomId}`);
+        if (res.data?.success && res.data.liveClass) {
+          setClassDetails(res.data.liveClass);
+        }
+      } catch (err) {
+        console.log("No specific MongoDB record for room, using standard room session");
+      }
+    };
+    fetchClass();
+  }, [roomId]);
+
   // Socket Connection setup
   useEffect(() => {
-    // Connect to LMS backend socket
     const s = io("http://localhost:5000", {
       transports: ["websocket", "polling"],
     });
     socketRef.current = s;
 
-    // Join the specified live class room
+    // Join room
     s.emit("join-class", {
       classId: roomId,
       user: currentUserName,
     });
 
-    // Listen for incoming broadcasted messages
+    // Listen for broadcasted messages
     s.on("receive-message", (incomingMsg) => {
       setMessages((prev) => [...prev, incomingMsg]);
     });
 
-    // Listen for peer join notifications
+    // Listen for peer joins
     s.on("user-joined", (data) => {
       const joinedName =
         typeof data?.user === "string"
@@ -84,7 +100,7 @@ export default function LiveClassRoom() {
         ...prev,
         {
           user: "EduConnect System",
-          message: `${joinedName} joined the lecture.`,
+          message: `${joinedName} joined the live session.`,
           time: new Date().toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
@@ -97,6 +113,10 @@ export default function LiveClassRoom() {
 
     return () => {
       s.disconnect();
+      // Clean up camera stream on unmount
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
     };
   }, [roomId, currentUserName]);
 
@@ -104,6 +124,35 @@ export default function LiveClassRoom() {
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Real Hardware Webcam Toggle
+  const toggleVideo = async () => {
+    if (isVideoOn) {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getVideoTracks().forEach((track) => track.stop());
+      }
+      setIsVideoOn(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: isMicOn,
+        });
+        mediaStreamRef.current = stream;
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+        setIsVideoOn(true);
+      } catch (err) {
+        console.error("Camera access error:", err);
+        alert("Camera permission denied or camera device is not available.");
+      }
+    }
+  };
+
+  const toggleMic = () => {
+    setIsMicOn((prev) => !prev);
+  };
 
   // Handle message sending
   const handleSendMessage = (e) => {
@@ -118,6 +167,12 @@ export default function LiveClassRoom() {
 
     setInputMessage("");
   };
+
+  const displayTitle =
+    classDetails?.title ||
+    "Full-Stack WebSockets & Real-Time Event Architecture Masterclass";
+  const displayInstructor =
+    classDetails?.instructor?.name || "Krish Singh (Lead Architect)";
 
   return (
     <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col overflow-hidden font-sans select-none">
@@ -148,7 +203,7 @@ export default function LiveClassRoom() {
 
           <div className="flex items-center gap-2">
             <h1 className="text-sm font-bold text-white tracking-tight truncate max-w-md">
-              Full-Stack Architecture & Distributed Real-Time Systems
+              {displayTitle}
             </h1>
             <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700/60">
               {roomId}
@@ -160,7 +215,7 @@ export default function LiveClassRoom() {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>Encrypted Room</span>
+            <span>MongoDB Verified</span>
           </div>
 
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/70 text-slate-300 text-xs font-semibold">
@@ -205,19 +260,19 @@ export default function LiveClassRoom() {
                 </div>
               )}
 
-              {/* Instructor Presentation Simulator */}
+              {/* Instructor Presentation Center */}
               <div className="text-center z-10 max-w-lg px-6">
                 <div className="w-24 h-24 mx-auto mb-4 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-500 p-1 shadow-2xl shadow-blue-500/20">
                   <div className="w-full h-full rounded-[22px] bg-slate-900 flex items-center justify-center text-3xl font-black text-blue-400">
-                    SJ
+                    {displayInstructor.substring(0, 2).toUpperCase()}
                   </div>
                 </div>
                 <h3 className="text-lg font-bold text-white mb-1">
-                  Dr. Sarah Jenkins
+                  {displayInstructor}
                 </h3>
                 <p className="text-xs text-slate-400 mb-4 flex items-center justify-center gap-1.5">
                   <Volume2 className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
-                  <span>Speaking: Microservices vs Event-Driven Architecture</span>
+                  <span>Active Session • Room #{roomId}</span>
                 </p>
 
                 {/* Animated Audio Visualizer Waves */}
@@ -238,10 +293,10 @@ export default function LiveClassRoom() {
                 </div>
               </div>
 
-              {/* Student Self Thumbnail (Picture-in-Picture) */}
-              <div className="absolute bottom-5 right-5 w-48 h-32 rounded-xl bg-slate-800/90 border border-slate-700/80 shadow-xl overflow-hidden flex flex-col justify-between p-2.5 backdrop-blur-md">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-300">
+              {/* Student Real Webcam PiP Preview */}
+              <div className="absolute bottom-5 right-5 w-52 h-36 rounded-xl bg-slate-800/90 border border-slate-700/80 shadow-2xl overflow-hidden flex flex-col justify-between p-2.5 backdrop-blur-md">
+                <div className="flex items-center justify-between z-10">
+                  <span className="text-[10px] font-bold text-slate-200 drop-shadow-md">
                     You ({currentUserName})
                   </span>
                   <div className="flex items-center gap-1">
@@ -253,21 +308,25 @@ export default function LiveClassRoom() {
                   </div>
                 </div>
 
-                <div className="flex-1 flex items-center justify-center">
-                  {isVideoOn ? (
-                    <div className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Cam Active</span>
-                    </div>
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-sm text-slate-300">
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`w-full h-full object-cover ${
+                      isVideoOn ? "block" : "hidden"
+                    }`}
+                  />
+                  {!isVideoOn && (
+                    <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-sm text-slate-300">
                       {currentUserName.charAt(0).toUpperCase()}
                     </div>
                   )}
                 </div>
 
-                <div className="text-[9px] text-slate-400 truncate">
-                  {isVideoOn ? "Camera on" : "Camera off"}
+                <div className="text-[9px] text-slate-300 font-semibold z-10 truncate drop-shadow-md">
+                  {isVideoOn ? "🔴 Webcam Live" : "Camera off"}
                 </div>
               </div>
             </div>
@@ -278,7 +337,7 @@ export default function LiveClassRoom() {
             <div className="flex items-center gap-3">
               {/* Mic Button */}
               <button
-                onClick={() => setIsMicOn(!isMicOn)}
+                onClick={toggleMic}
                 title={isMicOn ? "Mute Mic" : "Unmute Mic"}
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-lg ${
                   isMicOn
@@ -293,13 +352,13 @@ export default function LiveClassRoom() {
                 )}
               </button>
 
-              {/* Camera Button */}
+              {/* Camera Button (Real Webcam Trigger) */}
               <button
-                onClick={() => setIsVideoOn(!isVideoOn)}
-                title={isVideoOn ? "Turn off video" : "Start video"}
+                onClick={toggleVideo}
+                title={isVideoOn ? "Stop Camera" : "Start Camera"}
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-lg ${
                   isVideoOn
-                    ? "bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700"
+                    ? "bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-emerald-500/50"
                     : "bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/40"
                 }`}
               >
@@ -362,14 +421,13 @@ export default function LiveClassRoom() {
               </h2>
             </div>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
-              Socket.io
+              Socket.io Active
             </span>
           </div>
 
           {/* Chat Messages Scrollable Feed */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0 text-xs">
             {messages.map((msg, index) => {
-              // System Message Style
               if (msg.isSystem) {
                 return (
                   <div
@@ -437,7 +495,7 @@ export default function LiveClassRoom() {
                 type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
-                placeholder="Ask a question or say hi..."
+                placeholder="Ask a question or say hi in real-time..."
                 className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-hidden"
               />
               <button

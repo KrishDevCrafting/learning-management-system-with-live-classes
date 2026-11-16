@@ -23,6 +23,7 @@ import { useAuth } from "../Context/AuthContext";
 export default function Dashboard() {
   const { user } = useAuth();
   const [courses, setCourses] = useState([]);
+  const [liveClasses, setLiveClasses] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const defaultCourses = [
@@ -57,11 +58,15 @@ export default function Dashboard() {
   ];
 
   useEffect(() => {
-    const fetchCourses = async () => {
+    const fetchData = async () => {
       try {
-        const res = await API.get("/course");
-        if (res.data.success && res.data.courses && res.data.courses.length > 0) {
-          const mapped = res.data.courses.map((c) => ({
+        const [courseRes, liveRes] = await Promise.all([
+          API.get("/course").catch(() => null),
+          API.get("/live-class").catch(() => null),
+        ]);
+
+        if (courseRes?.data?.success && courseRes.data.courses?.length > 0) {
+          const mapped = courseRes.data.courses.map((c) => ({
             _id: c._id,
             id: c._id,
             title: c.title,
@@ -79,14 +84,18 @@ export default function Dashboard() {
         } else {
           setCourses(defaultCourses);
         }
+
+        if (liveRes?.data?.success && liveRes.data.liveClasses?.length > 0) {
+          setLiveClasses(liveRes.data.liveClasses);
+        }
       } catch (err) {
-        console.error("Course fetch error, using fallback:", err);
+        console.error("Dashboard fetch error, using fallback:", err);
         setCourses(defaultCourses);
       } finally {
         setLoading(false);
       }
     };
-    fetchCourses();
+    fetchData();
   }, []);
 
   return (
@@ -394,39 +403,78 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Live Session Card */}
-          <div className="rounded-2xl bg-white border border-slate-200/80 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 border border-red-200">
-                <Radio className="w-6 h-6 animate-pulse" />
+          {/* Live Session Cards */}
+          {liveClasses && liveClasses.length > 0 ? (
+            liveClasses.map((live) => (
+              <div
+                key={live._id}
+                className="rounded-2xl bg-white border border-slate-200/80 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 border border-red-200">
+                    <Radio className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-extrabold tracking-wider uppercase border border-red-200">
+                        {live.status === "ongoing" ? "🔴 LIVE NOW" : "SCHEDULED"}
+                      </span>
+                      <span className="text-xs text-slate-400 font-semibold">
+                        Room: #{live.roomId}
+                      </span>
+                    </div>
+                    <h3 className="text-base font-bold text-slate-900 mt-1">
+                      {live.title}
+                    </h3>
+                    <span className="text-xs text-slate-500 mt-0.5">
+                      Instructor: {live.instructor?.name || "Krish Singh"} • Course:{" "}
+                      {live.course?.title || "Full-Stack WebSockets Mastery"}
+                    </span>
+                  </div>
+                </div>
+
+                <Link
+                  to={`/live/${live.roomId}`}
+                  className="h-10 px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 shadow-md shadow-red-500/20 transition active:scale-[0.98]"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>Join Stream Console</span>
+                </Link>
               </div>
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-extrabold tracking-wider uppercase border border-red-200">
-                    STARTS IN 45 MINS
-                  </span>
-                  <span className="text-xs text-slate-400 font-semibold">
-                    Room: #LC-LIVE-892
+            ))
+          ) : (
+            <div className="rounded-2xl bg-white border border-slate-200/80 p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0 border border-red-200">
+                  <Radio className="w-6 h-6 animate-pulse" />
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-extrabold tracking-wider uppercase border border-red-200">
+                      STARTS IN 45 MINS
+                    </span>
+                    <span className="text-xs text-slate-400 font-semibold">
+                      Room: #LC-LIVE-892
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-slate-900 mt-1">
+                    Real-Time WebSockets & Node.js System Architecture with Krish
+                  </h3>
+                  <span className="text-xs text-slate-500 mt-0.5">
+                    Instructor: Krish Singh • Course: Full-Stack WebSockets Mastery
                   </span>
                 </div>
-                <h3 className="text-base font-bold text-slate-900 mt-1">
-                  Real-Time WebSockets & Node.js System Architecture with Krish
-                </h3>
-                <span className="text-xs text-slate-500 mt-0.5">
-                  Instructor: Krish Singh • Course: Full-Stack WebSockets
-                  Mastery
-                </span>
               </div>
-            </div>
 
-            <Link
-              to="/live/LC-LIVE-892"
-              className="h-10 px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 shadow-md shadow-red-500/20 transition active:scale-[0.98]"
-            >
-              <Play className="w-4 h-4 fill-white" />
-              <span>Join Stream Console</span>
-            </Link>
-          </div>
+              <Link
+                to="/live/LC-WEBSOCKET-2026"
+                className="h-10 px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold uppercase tracking-wider flex items-center gap-2 shadow-md shadow-red-500/20 transition active:scale-[0.98]"
+              >
+                <Play className="w-4 h-4 fill-white" />
+                <span>Join Stream Console</span>
+              </Link>
+            </div>
+          )}
         </section>
       </main>
     </div>
