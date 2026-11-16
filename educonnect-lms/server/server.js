@@ -1,23 +1,25 @@
 import express from "express";
 import http from "http";
-import courseRoutes from "./routes/courseRoutes.js";
-import lessonRoutes from "./routes/lessonRoutes.js";
-import enrollmentRoutes from "./routes/enrollmentRoutes.js";
 import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
 import { connectDB } from "./config/db.js";
+
 import authRoutes from "./routes/authRoutes.js";
-import "./workers/videoWorker.js";
-dotenv.config();
+import courseRoutes from "./routes/courseRoutes.js";
+import lessonRoutes from "./routes/lessonRoutes.js";
+import enrollmentRoutes from "./routes/enrollmentRoutes.js";
 import liveClassRoutes from "./routes/liveClassRoutes.js";
+
+dotenv.config();
+
 const app = express();
 const server = http.createServer(app);
 
-// Connect to MongoDB
+// Connect to Database
 connectDB();
 
-// CORS & Body parser
+// Middleware
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
@@ -25,9 +27,8 @@ app.use(
   }),
 );
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Socket.io for Real-Time Live Classes & Chat
+// Real-Time Socket.io Server Setup
 const io = new Server(server, {
   cors: {
     origin: process.env.CLIENT_URL || "http://localhost:5173",
@@ -38,21 +39,62 @@ const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log(`⚡ Client connected to LMS Socket: ${socket.id}`);
 
+  // 1. Join Room
   socket.on("join-class", ({ classId, user }) => {
     socket.join(classId);
-    socket.to(classId).emit("user-joined", { user, socketId: socket.id });
+    socket.currentRoom = classId;
+    socket.userName = typeof user === "string" ? user : user?.name || "Student";
+
+    const count = io.sockets.adapter.rooms.get(classId)?.size || 1;
+
+    // Send updated user count to everyone in this class room
+    io.to(classId).emit("room-users-count", { count });
+
+    // Notify peers that a new user joined
+    socket.to(classId).emit("user-joined", {
+      user: socket.userName,
+      socketId: socket.id,
+      count,
+    });
   });
 
-  // 2. Chat Message (join-class ke BAHAR, connection ke ANDAR)
+  // 2. Chat Message
   socket.on("send-message", ({ classId, message, user }) => {
     io.to(classId).emit("receive-message", {
       message,
-      user,
+      user: typeof user === "string" ? user : user?.name || "Student",
       time: new Date().toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       }),
     });
+  });
+
+  // 3. Raise Hand Event
+  socket.on("raise-hand", ({ classId, user, isHandRaised }) => {
+    const sender = typeof user === "string" ? user : user?.name || "Student";
+    io.to(classId).emit("hand-raised-update", {
+      user: sender,
+      isHandRaised,
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    });
+  });
+
+  // 4. Disconnect Handling
+  socket.on("disconnecting", () => {
+    for (const room of socket.rooms) {
+      if (room !== socket.id) {
+        const remaining = Math.max(
+          1,
+          (io.sockets.adapter.rooms.get(room)?.size || 1) - 1,
+        );
+        socket.to(room).emit("room-users-count", { count: remaining });
+        socket.to(room).emit("user-left", { user: socket.userName });
+      }
+    }
   });
 
   socket.on("disconnect", () => {
@@ -66,17 +108,8 @@ app.use("/api/course", courseRoutes);
 app.use("/api/lessons", lessonRoutes);
 app.use("/api/enrollment", enrollmentRoutes);
 app.use("/api/live-class", liveClassRoutes);
-app.use("/upload", express.static("upload"));
-// Health check endpoint
-app.get("/api/health", (req, res) => {
-  res.json({
-    status: "healthy",
-    project: "EduConnect LMS (Nexvia FS-03)",
-    timestamp: new Date(),
-  });
-});
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`🚀 EduConnect LMS Server running on http://localhost:${PORT}`);
+  console.log(`🚀 EduConnect Server running on port: ${PORT}`);
 });

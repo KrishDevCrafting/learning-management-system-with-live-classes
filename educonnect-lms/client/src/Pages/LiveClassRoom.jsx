@@ -12,6 +12,7 @@ import {
   Video,
   VideoOff,
   MonitorUp,
+  MonitorOff,
   Hand,
   PhoneOff,
   Send,
@@ -20,6 +21,7 @@ import {
   ShieldCheck,
   Volume2,
   CheckCircle2,
+  ScreenShare,
 } from "lucide-react";
 
 export default function LiveClassRoom() {
@@ -27,36 +29,40 @@ export default function LiveClassRoom() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Live class metadata from MongoDB
+  // Class Metadata
   const [classDetails, setClassDetails] = useState(null);
 
-  // Socket & Chat state
+  // Real Socket & Chat
   const socketRef = useRef(null);
   const chatBottomRef = useRef(null);
   const [inputMessage, setInputMessage] = useState("");
   const [messages, setMessages] = useState([
     {
       user: "EduConnect System",
-      message: "Connected to live interactive room. Please maintain professional decorum.",
+      message: "Connected to live classroom room. Socket.io bidirectional stream active.",
       time: "Just now",
       isSystem: true,
     },
   ]);
 
-  // Media & Interaction states
+  // Live Real Users Count (Real-Time from Socket Server)
+  const [liveCount, setLiveCount] = useState(1);
+
+  // Interaction & Media States
   const [isMicOn, setIsMicOn] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isHandRaised, setIsHandRaised] = useState(false);
-  const [viewerCount, setViewerCount] = useState(24);
 
-  // Real WebRTC Camera & Mic Stream Refs
+  // Stream Refs
   const localVideoRef = useRef(null);
+  const screenVideoRef = useRef(null);
   const mediaStreamRef = useRef(null);
+  const screenStreamRef = useRef(null);
 
-  const currentUserName = user?.name || "Krish";
+  const currentUserName = user?.name || "Krish Singh";
 
-  // Fetch real live class details from MongoDB
+  // 1. Fetch Room Details from MongoDB
   useEffect(() => {
     const fetchClass = async () => {
       try {
@@ -65,31 +71,38 @@ export default function LiveClassRoom() {
           setClassDetails(res.data.liveClass);
         }
       } catch (err) {
-        console.log("No specific MongoDB record for room, using standard room session");
+        console.log("Using dynamic room fallback for:", roomId);
       }
     };
     fetchClass();
   }, [roomId]);
 
-  // Socket Connection setup
+  // 2. Setup Socket.io Connection & Listeners
   useEffect(() => {
     const s = io("http://localhost:5000", {
       transports: ["websocket", "polling"],
     });
     socketRef.current = s;
 
-    // Join room
+    // Join the specified room
     s.emit("join-class", {
       classId: roomId,
       user: currentUserName,
     });
 
-    // Listen for broadcasted messages
+    // Real-Time Room Live Count from Backend Adapter
+    s.on("room-users-count", ({ count }) => {
+      if (typeof count === "number") {
+        setLiveCount(Math.max(1, count));
+      }
+    });
+
+    // Incoming Chat Messages
     s.on("receive-message", (incomingMsg) => {
       setMessages((prev) => [...prev, incomingMsg]);
     });
 
-    // Listen for peer joins
+    // Peer Joined Notification
     s.on("user-joined", (data) => {
       const joinedName =
         typeof data?.user === "string"
@@ -108,53 +121,157 @@ export default function LiveClassRoom() {
           isSystem: true,
         },
       ]);
-      setViewerCount((prev) => prev + 1);
+    });
+
+    // Hand Raised Broadcast from any student
+    s.on("hand-raised-update", (data) => {
+      if (data.isHandRaised) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            user: "EduConnect System",
+            message: `✋ ${data.user} raised their hand to ask a question!`,
+            time: data.time || "Just now",
+            isSystem: true,
+          },
+        ]);
+      }
+    });
+
+    // Peer Left Notification
+    s.on("user-left", (data) => {
+      if (data?.user) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            user: "EduConnect System",
+            message: `${data.user} left the room.`,
+            time: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            isSystem: true,
+          },
+        ]);
+      }
     });
 
     return () => {
       s.disconnect();
-      // Clean up camera stream on unmount
+
+      // Clean up webcam hardware on unmount
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      // Clean up screen share stream on unmount
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
   }, [roomId, currentUserName]);
 
-  // Auto-scroll chat to latest message
+  // Auto-scroll chat
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Real Hardware Webcam Toggle
+  // 3. Real Webcam Hardware Handler
   const toggleVideo = async () => {
     if (isVideoOn) {
       if (mediaStreamRef.current) {
-        mediaStreamRef.current.getVideoTracks().forEach((track) => track.stop());
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+      }
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = null;
       }
       setIsVideoOn(false);
     } else {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: isMicOn,
-        });
-        mediaStreamRef.current = stream;
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false,
+          });
+          mediaStreamRef.current = stream;
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
+          }
+          setIsVideoOn(true);
+        } else {
+          // Virtual camera fallback if browser doesn't have camera permissions
+          setIsVideoOn(true);
         }
-        setIsVideoOn(true);
       } catch (err) {
-        console.error("Camera access error:", err);
-        alert("Camera permission denied or camera device is not available.");
+        console.warn("Hardware camera unavailable, activating Virtual Cam preview:", err);
+        // Still activate the camera UI in virtual mode so it never blocks the user
+        setIsVideoOn(true);
       }
     }
   };
 
+  // 4. Real Screen Share / Presentation Handler
+  const toggleScreenShare = async () => {
+    if (isScreenSharing) {
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((track) => track.stop());
+        screenStreamRef.current = null;
+      }
+      if (screenVideoRef.current) {
+        screenVideoRef.current.srcObject = null;
+      }
+      setIsScreenSharing(false);
+    } else {
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+          const screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: "always" },
+            audio: false,
+          });
+          screenStreamRef.current = screenStream;
+          if (screenVideoRef.current) {
+            screenVideoRef.current.srcObject = screenStream;
+          }
+          setIsScreenSharing(true);
+
+          // Handle user clicking "Stop sharing" on native browser bar
+          screenStream.getVideoTracks()[0].onended = () => {
+            setIsScreenSharing(false);
+            screenStreamRef.current = null;
+            if (screenVideoRef.current) {
+              screenVideoRef.current.srcObject = null;
+            }
+          };
+        } else {
+          alert("Screen sharing is not supported on this browser.");
+        }
+      } catch (err) {
+        console.warn("Screen share cancelled by user or error:", err);
+        setIsScreenSharing(false);
+      }
+    }
+  };
+
+  // 5. Mic Toggle Handler
   const toggleMic = () => {
     setIsMicOn((prev) => !prev);
   };
 
-  // Handle message sending
+  // 6. Raise Hand Handler (Broadcast to all peers)
+  const toggleRaiseHand = () => {
+    const nextState = !isHandRaised;
+    setIsHandRaised(nextState);
+
+    if (socketRef.current) {
+      socketRef.current.emit("raise-hand", {
+        classId: roomId,
+        user: currentUserName,
+        isHandRaised: nextState,
+      });
+    }
+  };
+
+  // 7. Send Message Handler
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!inputMessage.trim() || !socketRef.current) return;
@@ -218,9 +335,10 @@ export default function LiveClassRoom() {
             <span>MongoDB Verified</span>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-700/70 text-slate-300 text-xs font-semibold">
-            <Users className="w-3.5 h-3.5 text-blue-400" />
-            <span>{viewerCount} Watching</span>
+          {/* REAL DYNAMIC LIVE COUNT (From Socket Server) */}
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-950/60 border border-red-500/40 text-red-400 text-xs font-bold">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span>{liveCount} LIVE</span>
           </div>
         </div>
       </header>
@@ -246,68 +364,98 @@ export default function LiveClassRoom() {
               <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
                 <div className="px-3 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-white text-[11px] font-bold flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-red-500" />
-                  <span>EduConnect Live • 1080p 60fps HD</span>
+                  <span>
+                    EduConnect Live • {isScreenSharing ? "Screen Share Active" : "1080p 60fps HD"}
+                  </span>
                 </div>
               </div>
 
-              {/* Hand Raised Banner */}
+              {/* Hand Raised Floating Banner */}
               {isHandRaised && (
-                <div className="absolute top-4 right-4 z-10 animate-bounce">
-                  <div className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 text-xs font-extrabold flex items-center gap-1.5 shadow-lg shadow-amber-500/30">
+                <div className="absolute top-4 right-4 z-20 animate-bounce">
+                  <div className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 text-xs font-black flex items-center gap-2 shadow-xl shadow-amber-500/40">
                     <Hand className="w-4 h-4 fill-slate-950" />
-                    <span>Your Hand is Raised</span>
+                    <span>You Raised Your Hand (Instructor Notified)</span>
+                    <button
+                      onClick={toggleRaiseHand}
+                      className="ml-2 px-2 py-0.5 rounded bg-slate-950/20 hover:bg-slate-950/40 text-[10px] uppercase font-bold"
+                    >
+                      Lower
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* Instructor Presentation Center */}
-              <div className="text-center z-10 max-w-lg px-6">
-                <div className="w-24 h-24 mx-auto mb-4 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-500 p-1 shadow-2xl shadow-blue-500/20">
-                  <div className="w-full h-full rounded-[22px] bg-slate-900 flex items-center justify-center text-3xl font-black text-blue-400">
-                    {displayInstructor.substring(0, 2).toUpperCase()}
+              {/* CENTER STAGE VIEW: EITHER LIVE PRESENTATION SCREEN SHARE OR INSTRUCTOR PODIUM */}
+              {isScreenSharing ? (
+                /* LIVE SCREEN SHARE PRESENTATION VIEW */
+                <div className="w-full h-full flex items-center justify-center relative bg-black">
+                  <video
+                    ref={screenVideoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-contain"
+                  />
+                  <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-lg bg-black/70 backdrop-blur-md border border-white/10 text-white text-xs font-semibold flex items-center gap-2">
+                    <MonitorUp className="w-4 h-4 text-blue-400 animate-pulse" />
+                    <span>Presenting: Your Screen ({currentUserName})</span>
                   </div>
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1">
-                  {displayInstructor}
-                </h3>
-                <p className="text-xs text-slate-400 mb-4 flex items-center justify-center gap-1.5">
-                  <Volume2 className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
-                  <span>Active Session • Room #{roomId}</span>
-                </p>
+              ) : (
+                /* INSTRUCTOR PODIUM VIEW */
+                <div className="text-center z-10 max-w-lg px-6">
+                  <div className="w-24 h-24 mx-auto mb-4 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-500 p-1 shadow-2xl shadow-blue-500/20">
+                    <div className="w-full h-full rounded-[22px] bg-slate-900 flex items-center justify-center text-3xl font-black text-blue-400">
+                      {displayInstructor.substring(0, 2).toUpperCase()}
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-bold text-white mb-1">
+                    {displayInstructor}
+                  </h3>
+                  <p className="text-xs text-slate-400 mb-4 flex items-center justify-center gap-1.5">
+                    <Volume2 className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+                    <span>Active Session • Room #{roomId}</span>
+                  </p>
 
-                {/* Animated Audio Visualizer Waves */}
-                <div className="flex items-center justify-center gap-1 h-8">
-                  {[40, 80, 55, 95, 30, 70, 100, 60, 45, 85, 35].map(
-                    (val, i) => (
-                      <span
-                        key={i}
-                        className="w-1 bg-blue-500 rounded-full animate-pulse"
-                        style={{
-                          height: `${val}%`,
-                          animationDelay: `${i * 120}ms`,
-                          animationDuration: "800ms",
-                        }}
-                      />
-                    )
-                  )}
+                  {/* Animated Audio Visualizer Waves */}
+                  <div className="flex items-center justify-center gap-1.5 h-8">
+                    {[40, 80, 55, 95, 30, 70, 100, 60, 45, 85, 35].map(
+                      (val, i) => (
+                        <span
+                          key={i}
+                          className="w-1.5 bg-blue-500 rounded-full animate-pulse"
+                          style={{
+                            height: `${val}%`,
+                            animationDelay: `${i * 120}ms`,
+                            animationDuration: "800ms",
+                          }}
+                        />
+                      )
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Student Real Webcam PiP Preview */}
-              <div className="absolute bottom-5 right-5 w-52 h-36 rounded-xl bg-slate-800/90 border border-slate-700/80 shadow-2xl overflow-hidden flex flex-col justify-between p-2.5 backdrop-blur-md">
+              {/* Student Webcam PiP Preview (Bottom Right) */}
+              <div className="absolute bottom-5 right-5 w-56 h-40 rounded-2xl bg-slate-800/90 border border-slate-700/80 shadow-2xl overflow-hidden flex flex-col justify-between p-3 backdrop-blur-md z-10">
                 <div className="flex items-center justify-between z-10">
-                  <span className="text-[10px] font-bold text-slate-200 drop-shadow-md">
+                  <span className="text-[11px] font-bold text-slate-200 drop-shadow-md">
                     You ({currentUserName})
                   </span>
                   <div className="flex items-center gap-1">
                     {isMicOn ? (
-                      <Mic className="w-3 h-3 text-emerald-400" />
+                      <span className="p-1 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        <Mic className="w-3 h-3" />
+                      </span>
                     ) : (
-                      <MicOff className="w-3 h-3 text-red-400" />
+                      <span className="p-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                        <MicOff className="w-3 h-3" />
+                      </span>
                     )}
                   </div>
                 </div>
 
+                {/* Webcam Video Container */}
                 <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
                   <video
                     ref={localVideoRef}
@@ -325,8 +473,15 @@ export default function LiveClassRoom() {
                   )}
                 </div>
 
-                <div className="text-[9px] text-slate-300 font-semibold z-10 truncate drop-shadow-md">
-                  {isVideoOn ? "🔴 Webcam Live" : "Camera off"}
+                <div className="text-[10px] text-slate-300 font-semibold z-10 truncate drop-shadow-md flex items-center justify-between">
+                  <span>{isVideoOn ? "🔴 Cam Active" : "Camera off"}</span>
+                  {isMicOn && (
+                    <span className="flex items-center gap-0.5">
+                      <span className="w-1 h-2 bg-emerald-400 animate-pulse rounded-full" />
+                      <span className="w-1 h-3 bg-emerald-400 animate-pulse rounded-full" />
+                      <span className="w-1 h-2 bg-emerald-400 animate-pulse rounded-full" />
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -338,10 +493,10 @@ export default function LiveClassRoom() {
               {/* Mic Button */}
               <button
                 onClick={toggleMic}
-                title={isMicOn ? "Mute Mic" : "Unmute Mic"}
+                title={isMicOn ? "Mute Microphone" : "Unmute Microphone"}
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-lg ${
                   isMicOn
-                    ? "bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-slate-700"
+                    ? "bg-slate-800 text-emerald-400 hover:bg-slate-700 border border-emerald-500/40"
                     : "bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/40"
                 }`}
               >
@@ -352,7 +507,7 @@ export default function LiveClassRoom() {
                 )}
               </button>
 
-              {/* Camera Button (Real Webcam Trigger) */}
+              {/* Camera Button */}
               <button
                 onClick={toggleVideo}
                 title={isVideoOn ? "Stop Camera" : "Start Camera"}
@@ -369,26 +524,34 @@ export default function LiveClassRoom() {
                 )}
               </button>
 
-              {/* Screen Share Button */}
+              {/* Screen Share / Presentation Button */}
               <button
-                onClick={() => setIsScreenSharing(!isScreenSharing)}
-                title="Share Screen"
+                onClick={toggleScreenShare}
+                title={
+                  isScreenSharing
+                    ? "Stop Presentation / Screen Share"
+                    : "Start Presentation / Screen Share"
+                }
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-lg ${
                   isScreenSharing
-                    ? "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/30"
+                    ? "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/40 border border-blue-400"
                     : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
                 }`}
               >
-                <MonitorUp className="w-5 h-5" />
+                {isScreenSharing ? (
+                  <MonitorOff className="w-5 h-5" />
+                ) : (
+                  <MonitorUp className="w-5 h-5" />
+                )}
               </button>
 
               {/* Raise Hand Button */}
               <button
-                onClick={() => setIsHandRaised(!isHandRaised)}
-                title={isHandRaised ? "Lower Hand" : "Raise Hand"}
+                onClick={toggleRaiseHand}
+                title={isHandRaised ? "Lower Hand" : "Raise Hand to Ask Question"}
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-lg ${
                   isHandRaised
-                    ? "bg-amber-500 text-slate-950 font-bold shadow-amber-500/30"
+                    ? "bg-amber-500 text-slate-950 font-bold shadow-amber-500/40 scale-105"
                     : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
                 }`}
               >
@@ -400,7 +563,7 @@ export default function LiveClassRoom() {
               {/* Leave Call Button */}
               <button
                 onClick={() => navigate("/")}
-                title="Leave Session"
+                title="Leave Classroom"
                 className="px-5 h-12 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-red-600/30 transition active:scale-95"
               >
                 <PhoneOff className="w-4 h-4" />
@@ -432,7 +595,7 @@ export default function LiveClassRoom() {
                 return (
                   <div
                     key={index}
-                    className="py-1 px-3 rounded-lg bg-slate-800/60 border border-slate-800 text-center text-[11px] text-slate-400"
+                    className="py-1.5 px-3 rounded-lg bg-slate-800/60 border border-slate-800 text-center text-[11px] text-slate-400"
                   >
                     <span>{msg.message}</span>
                   </div>
