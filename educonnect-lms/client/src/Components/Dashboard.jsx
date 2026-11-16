@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import API from "../axios";
 import {
   Search,
   Bell,
@@ -15,56 +16,78 @@ import {
   Calendar,
   ChevronRight,
   Play,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "../Context/AuthContext";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const courses = [
+  const defaultCourses = [
     {
-      id: 1,
-      title: "Distributed Systems & Event-Driven Architecture with Kafka & Go",
+      _id: "default-1",
+      title: "Real-Time WebSockets & Node.js System Architecture",
       category: "BACKEND SYSTEMS",
       nextLesson: "Handling Partition Splits & Consensus",
       progress: 65,
       lessonCount: "Lesson 8 of 12",
       rating: 4.9,
-      instructor: "Marcus Vance",
-      initials: "MV",
-      lastActive: "2h ago",
+      instructor: "Krish Singh",
+      initials: "KS",
+      lastActive: "Active today",
       thumbnail:
         "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800&auto=format&fit=crop",
     },
     {
-      id: 2,
-      title: "Production Full-Stack Next.js 15, Turborepo & Micro-Frontends",
-      category: "FULL-STACK",
-      nextLesson: "Edge Middleware & Session Invalidation",
+      _id: "default-2",
+      title: "PostgreSQL Mastery: Schema Design & Index Tuning",
+      category: "DATABASE SYSTEMS",
+      nextLesson: "Relational Modeling & Integrity",
       progress: 42,
       lessonCount: "Lesson 5 of 12",
       rating: 4.8,
-      instructor: "Elena Rostova",
-      initials: "ER",
+      instructor: "Krish Singh",
+      initials: "KS",
       lastActive: "Yesterday",
       thumbnail:
-        "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=800&auto=format&fit=crop",
-    },
-    {
-      id: 3,
-      title: "Applied LLM Engineering: Fine-Tuning & Multi-Agent LangGraph",
-      category: "AI SYSTEMS",
-      nextLesson: "Final Capstone Evaluation",
-      progress: 88,
-      lessonCount: "Lesson 11 of 12",
-      rating: 5.0,
-      instructor: "Siddharth Mehta",
-      initials: "SM",
-      lastActive: "3d ago",
-      thumbnail:
-        "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop",
+        "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=800&auto=format&fit=crop",
     },
   ];
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const res = await API.get("/course");
+        if (res.data.success && res.data.courses && res.data.courses.length > 0) {
+          const mapped = res.data.courses.map((c) => ({
+            _id: c._id,
+            id: c._id,
+            title: c.title,
+            category: c.category || "ENGINEERING",
+            nextLesson: c.subtitle || "Continue Learning",
+            progress: 50,
+            lessonCount: "Modules Ready",
+            rating: c.averageRating || 4.9,
+            instructor: c.instructor?.name || "Krish Singh",
+            initials: (c.instructor?.name || "KS").substring(0, 2).toUpperCase(),
+            lastActive: "Live Now",
+            thumbnail: c.thumbnail,
+          }));
+          setCourses(mapped);
+        } else {
+          setCourses(defaultCourses);
+        }
+      } catch (err) {
+        console.error("Course fetch error, using fallback:", err);
+        setCourses(defaultCourses);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCourses();
+  }, []);
 
   return (
     <div className="flex-1 min-h-screen bg-slate-50 font-sans">

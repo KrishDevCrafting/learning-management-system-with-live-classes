@@ -5,7 +5,7 @@ import fs from "fs";
 const uploadDir = "uploads/videos";
 const thumbnailDir = "uploads/thumbnails";
 
-if (!fs.existsSync(upload)) {
+if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, {
     recursive: true,
   });
@@ -21,8 +21,7 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-
-    const cleanalname = file.originalname.replace(/\s+/g, "_");
+    const cleanFileName = file.originalname.replace(/\s+/g, "_");
     cb(null, `video-${uniqueSuffix}-${cleanFileName}`);
   },
 });
@@ -35,12 +34,12 @@ const fileFilter = (req, file, cb) => {
     "video/webm",
     "video/x-matroska",
   ];
-  if (allowedMimeTypes.includes(FileReader.mimetype)) {
+  if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
     cb(
       new Error(
-        "Invalid file type. Only video files (MP4,MKV,MOV,WebM) are allowed",
+        "Invalid file type. Only video files (MP4, MKV, MOV, WebM) are allowed",
       ),
       false,
     );
