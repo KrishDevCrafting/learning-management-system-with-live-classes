@@ -6,34 +6,72 @@ import Login from "./Pages/Login";
 import Register from "./Pages/Register";
 import CourseWatch from "./Pages/CourseWatch";
 import LiveClassRoom from "./Pages/LiveClassRoom";
+import { ProtectedRoute, PublicOnlyRoute } from "./Components/ProtectedRoute";
 
 export default function App() {
   return (
     <Routes>
-      {/* 1. Auth Pages */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      {/* 1. Auth Pages (Public Only: If logged in, redirect to Dashboard) */}
+      <Route
+        path="/login"
+        element={
+          <PublicOnlyRoute>
+            <Login />
+          </PublicOnlyRoute>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <PublicOnlyRoute>
+            <Register />
+          </PublicOnlyRoute>
+        }
+      />
 
-      {/* 2. Standalone Immersive Video Classrooms (No Sidebar clutter) */}
-      <Route path="/course/:id/learn" element={<CourseWatch />} />
-      <Route path="/live/:roomId" element={<LiveClassRoom />} />
-      <Route path="/live" element={<LiveClassRoom />} />
+      {/* 2. Standalone Immersive Video Classrooms (Protected: Require Login) */}
+      <Route
+        path="/course/:id/learn"
+        element={
+          <ProtectedRoute>
+            <CourseWatch />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/live/:roomId"
+        element={
+          <ProtectedRoute>
+            <LiveClassRoom />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/live"
+        element={
+          <ProtectedRoute>
+            <LiveClassRoom />
+          </ProtectedRoute>
+        }
+      />
 
-      {/* 3. Main LMS Workspace (With Left Sidebar Navigation) */}
+      {/* 3. Main LMS Workspace (Protected: Require Login) */}
       <Route
         path="/*"
         element={
-          <div className="flex min-h-screen bg-slate-50 antialiased font-sans">
-            <Sidebar />
-            <div className="pl-64 flex-1 flex flex-col min-w-0">
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/my-learning" element={<Dashboard />} />
-                <Route path="/courses" element={<Dashboard />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+          <ProtectedRoute>
+            <div className="flex min-h-screen bg-slate-50 antialiased font-sans">
+              <Sidebar />
+              <div className="pl-64 flex-1 flex flex-col min-w-0">
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/my-learning" element={<Dashboard />} />
+                  <Route path="/courses" element={<Dashboard />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </div>
             </div>
-          </div>
+          </ProtectedRoute>
         }
       />
     </Routes>
