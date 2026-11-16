@@ -21,7 +21,12 @@ import {
   ShieldCheck,
   Volume2,
   CheckCircle2,
-  ScreenShare,
+  ChevronLeft,
+  ChevronRight,
+  Presentation,
+  Code2,
+  Layers,
+  Maximize2,
 } from "lucide-react";
 
 export default function LiveClassRoom() {
@@ -31,6 +36,10 @@ export default function LiveClassRoom() {
 
   // Class Metadata
   const [classDetails, setClassDetails] = useState(null);
+
+  // Stage Presentation Mode: 'presentation' | 'screenshare' | 'code'
+  const [stageMode, setStageMode] = useState("presentation");
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   // Real Socket & Chat
   const socketRef = useRef(null);
@@ -62,6 +71,70 @@ export default function LiveClassRoom() {
 
   const currentUserName = user?.name || "Krish Singh";
 
+  // Presentation Slide Deck Data
+  const slides = [
+    {
+      title: "Distributed WebSockets & Redis Pub/Sub Cluster",
+      category: "SYSTEM ARCHITECTURE • MODULE 01",
+      points: [
+        "Clients maintain long-lived full-duplex TCP sockets with individual Node instances.",
+        "Redis Pub/Sub acts as the distributed event backbone across multi-region server clusters.",
+        "Connection persistence handles sub-15ms message fan-out to 100,000+ concurrent listeners.",
+      ],
+      diagram: `[ Web Clients ] ──(WebSocket)──> [ Node Server 1 ] ──┐
+[ Web Clients ] ──(WebSocket)──> [ Node Server 2 ] ──┼──> [ Redis Pub/Sub Engine ]
+[ Web Clients ] ──(WebSocket)──> [ Node Server 3 ] ──┘`,
+      code: `// Horizontal Socket Scaling via Redis Adapter
+import { createAdapter } from "@socket.io/redis-adapter";
+import { createClient } from "redis";
+
+const pubClient = createClient({ url: process.env.REDIS_URL });
+const subClient = pubClient.duplicate();
+await Promise.all([pubClient.connect(), subClient.connect()]);
+
+io.adapter(createAdapter(pubClient, subClient));
+console.log("⚡ Distributed cluster synced across all Node workers");`,
+    },
+    {
+      title: "Protocol Benchmark: HTTP/1.1 vs WebSockets (RFC 6455)",
+      category: "PERFORMANCE BENCHMARK • MODULE 02",
+      points: [
+        "HTTP incurs 500-1000 byte headers on every single message request.",
+        "WebSocket Upgrade handshake switches protocol to persistent framing in HTTP 101.",
+        "Message frames are reduced to only 2-10 bytes overhead, reducing server memory 85%.",
+      ],
+      diagram: `HTTP Request/Response:  [TCP Handshake] -> [Headers 800B] -> [Payload] -> [Close] (~140ms)
+WebSocket Protocol:     [1x Handshake Upgrade] -> [2-Byte Frame] -> [2-Byte Frame] (~8ms)`,
+      code: `// WebSocket Binary Frame Structure (RFC 6455)
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-------+-+-------------+-------------------------------+
+|F|R|R|R| opcode|M| Payload len |    Extended payload length    |
+|I|S|S|S|  (4)  |A|     (7)     |             (16/64)           |
+|N|V|V|V|       |S|             |   (if payload len==126/127)   |
++-+-+-+-+-------+-+-------------+-------------------------------+`,
+    },
+    {
+      title: "PostgreSQL High-Throughput Schema & B-Tree Indexing",
+      category: "DATABASE OPTIMIZATION • MODULE 03",
+      points: [
+        "Sequential Table Scans on 1M rows create high disk I/O lock bottlenecks.",
+        "B-Tree composite indexes reduce lookup complexity from O(N) to O(log N).",
+        "Partial indexing filters only active live sessions, saving 70% cache memory.",
+      ],
+      diagram: `Query Planner ➔ Check Composite B-Tree Index ➔ Direct Row Pointer ➔ 4ms Response`,
+      code: `-- High Performance Partial Composite Index
+CREATE INDEX idx_live_classes_active 
+ON live_classes (room_id, status) 
+WHERE status = 'ongoing';
+
+EXPLAIN ANALYZE 
+SELECT * FROM live_classes 
+WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
+-- Execution time: 0.84ms (Index Scan)`,
+    },
+  ];
+
   // 1. Fetch Room Details from MongoDB
   useEffect(() => {
     const fetchClass = async () => {
@@ -84,13 +157,13 @@ export default function LiveClassRoom() {
     });
     socketRef.current = s;
 
-    // Join the specified room
+    // Join room
     s.emit("join-class", {
       classId: roomId,
       user: currentUserName,
     });
 
-    // Real-Time Room Live Count from Backend Adapter
+    // Real-Time Room Live Count from Backend
     s.on("room-users-count", ({ count }) => {
       if (typeof count === "number") {
         setLiveCount(Math.max(1, count));
@@ -102,7 +175,7 @@ export default function LiveClassRoom() {
       setMessages((prev) => [...prev, incomingMsg]);
     });
 
-    // Peer Joined Notification
+    // Peer Joined
     s.on("user-joined", (data) => {
       const joinedName =
         typeof data?.user === "string"
@@ -123,7 +196,7 @@ export default function LiveClassRoom() {
       ]);
     });
 
-    // Hand Raised Broadcast from any student
+    // Hand Raised Broadcast
     s.on("hand-raised-update", (data) => {
       if (data.isHandRaised) {
         setMessages((prev) => [
@@ -138,7 +211,7 @@ export default function LiveClassRoom() {
       }
     });
 
-    // Peer Left Notification
+    // Peer Left
     s.on("user-left", (data) => {
       if (data?.user) {
         setMessages((prev) => [
@@ -158,17 +231,31 @@ export default function LiveClassRoom() {
 
     return () => {
       s.disconnect();
-
-      // Clean up webcam hardware on unmount
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       }
-      // Clean up screen share stream on unmount
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
   }, [roomId, currentUserName]);
+
+  // Safe Video Stream Attachment Effects (Fixes Null Ref Race Condition!)
+  useEffect(() => {
+    if (
+      isScreenSharing &&
+      screenVideoRef.current &&
+      screenStreamRef.current
+    ) {
+      screenVideoRef.current.srcObject = screenStreamRef.current;
+    }
+  }, [isScreenSharing, stageMode]);
+
+  useEffect(() => {
+    if (isVideoOn && localVideoRef.current && mediaStreamRef.current) {
+      localVideoRef.current.srcObject = mediaStreamRef.current;
+    }
+  }, [isVideoOn]);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -194,17 +281,12 @@ export default function LiveClassRoom() {
             audio: false,
           });
           mediaStreamRef.current = stream;
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
-          }
           setIsVideoOn(true);
         } else {
-          // Virtual camera fallback if browser doesn't have camera permissions
           setIsVideoOn(true);
         }
       } catch (err) {
         console.warn("Hardware camera unavailable, activating Virtual Cam preview:", err);
-        // Still activate the camera UI in virtual mode so it never blocks the user
         setIsVideoOn(true);
       }
     }
@@ -221,6 +303,7 @@ export default function LiveClassRoom() {
         screenVideoRef.current.srcObject = null;
       }
       setIsScreenSharing(false);
+      setStageMode("presentation");
     } else {
       try {
         if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
@@ -229,14 +312,12 @@ export default function LiveClassRoom() {
             audio: false,
           });
           screenStreamRef.current = screenStream;
-          if (screenVideoRef.current) {
-            screenVideoRef.current.srcObject = screenStream;
-          }
           setIsScreenSharing(true);
+          setStageMode("screenshare");
 
-          // Handle user clicking "Stop sharing" on native browser bar
           screenStream.getVideoTracks()[0].onended = () => {
             setIsScreenSharing(false);
+            setStageMode("presentation");
             screenStreamRef.current = null;
             if (screenVideoRef.current) {
               screenVideoRef.current.srcObject = null;
@@ -248,6 +329,7 @@ export default function LiveClassRoom() {
       } catch (err) {
         console.warn("Screen share cancelled by user or error:", err);
         setIsScreenSharing(false);
+        setStageMode("presentation");
       }
     }
   };
@@ -257,7 +339,7 @@ export default function LiveClassRoom() {
     setIsMicOn((prev) => !prev);
   };
 
-  // 6. Raise Hand Handler (Broadcast to all peers)
+  // 6. Raise Hand Handler
   const toggleRaiseHand = () => {
     const nextState = !isHandRaised;
     setIsHandRaised(nextState);
@@ -290,6 +372,8 @@ export default function LiveClassRoom() {
     "Full-Stack WebSockets & Real-Time Event Architecture Masterclass";
   const displayInstructor =
     classDetails?.instructor?.name || "Krish Singh (Lead Architect)";
+
+  const currentSlideData = slides[currentSlide];
 
   return (
     <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col overflow-hidden font-sans select-none">
@@ -335,7 +419,7 @@ export default function LiveClassRoom() {
             <span>MongoDB Verified</span>
           </div>
 
-          {/* REAL DYNAMIC LIVE COUNT (From Socket Server) */}
+          {/* REAL DYNAMIC LIVE COUNT */}
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-950/60 border border-red-500/40 text-red-400 text-xs font-bold">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             <span>{liveCount} LIVE</span>
@@ -349,10 +433,10 @@ export default function LiveClassRoom() {
         <section className="flex-1 flex flex-col bg-slate-950 relative min-w-0">
           {/* Main Visual Stream Display */}
           <div className="flex-1 relative flex items-center justify-center p-4 min-h-0">
-            <div className="w-full h-full max-w-6xl rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800/80 shadow-2xl relative overflow-hidden flex flex-col items-center justify-center">
+            <div className="w-full h-full max-w-6xl rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800/80 shadow-2xl relative overflow-hidden flex flex-col justify-between">
               {/* Grid Background Effect */}
               <div
-                className="absolute inset-0 opacity-20 pointer-events-none"
+                className="absolute inset-0 opacity-15 pointer-events-none"
                 style={{
                   backgroundImage:
                     "radial-gradient(circle at 1px 1px, #3b82f6 1px, transparent 0)",
@@ -360,19 +444,83 @@ export default function LiveClassRoom() {
                 }}
               />
 
-              {/* Watermark Branding */}
-              <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-                <div className="px-3 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-white text-[11px] font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-red-500" />
-                  <span>
-                    EduConnect Live • {isScreenSharing ? "Screen Share Active" : "1080p 60fps HD"}
-                  </span>
+              {/* Stage Top Bar: Mode Switcher & Slide Controls */}
+              <div className="relative z-10 px-5 py-3 border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md flex items-center justify-between">
+                {/* Mode Selector Tabs */}
+                <div className="inline-flex rounded-xl bg-slate-950/80 border border-slate-800 p-1 text-xs font-bold">
+                  <button
+                    onClick={() => setStageMode("presentation")}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                      stageMode === "presentation"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <Presentation className="w-3.5 h-3.5" />
+                    <span>Lecture Deck</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!isScreenSharing) toggleScreenShare();
+                      else setStageMode("screenshare");
+                    }}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                      stageMode === "screenshare"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <MonitorUp className="w-3.5 h-3.5" />
+                    <span>Screen Share</span>
+                  </button>
+                  <button
+                    onClick={() => setStageMode("code")}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                      stageMode === "code"
+                        ? "bg-blue-600 text-white shadow-xs"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <Code2 className="w-3.5 h-3.5" />
+                    <span>Live Code</span>
+                  </button>
                 </div>
+
+                {/* Slide Navigators (When in Presentation Mode) */}
+                {stageMode === "presentation" && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() =>
+                        setCurrentSlide((prev) =>
+                          prev > 0 ? prev - 1 : slides.length - 1
+                        )
+                      }
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                      title="Previous Slide"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="text-xs font-mono font-bold text-slate-300 px-2 py-1 rounded bg-slate-950 border border-slate-800">
+                      Slide {currentSlide + 1} of {slides.length}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setCurrentSlide((prev) =>
+                          prev < slides.length - 1 ? prev + 1 : 0
+                        )
+                      }
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                      title="Next Slide"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Hand Raised Floating Banner */}
               {isHandRaised && (
-                <div className="absolute top-4 right-4 z-20 animate-bounce">
+                <div className="absolute top-16 right-5 z-20 animate-bounce">
                   <div className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 text-xs font-black flex items-center gap-2 shadow-xl shadow-amber-500/40">
                     <Hand className="w-4 h-4 fill-slate-950" />
                     <span>You Raised Your Hand (Instructor Notified)</span>
@@ -386,103 +534,158 @@ export default function LiveClassRoom() {
                 </div>
               )}
 
-              {/* CENTER STAGE VIEW: EITHER LIVE PRESENTATION SCREEN SHARE OR INSTRUCTOR PODIUM */}
-              {isScreenSharing ? (
-                /* LIVE SCREEN SHARE PRESENTATION VIEW */
-                <div className="w-full h-full flex items-center justify-center relative bg-black">
-                  <video
-                    ref={screenVideoRef}
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-contain"
-                  />
-                  <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-lg bg-black/70 backdrop-blur-md border border-white/10 text-white text-xs font-semibold flex items-center gap-2">
-                    <MonitorUp className="w-4 h-4 text-blue-400 animate-pulse" />
-                    <span>Presenting: Your Screen ({currentUserName})</span>
-                  </div>
-                </div>
-              ) : (
-                /* INSTRUCTOR PODIUM VIEW */
-                <div className="text-center z-10 max-w-lg px-6">
-                  <div className="w-24 h-24 mx-auto mb-4 rounded-3xl bg-gradient-to-tr from-blue-600 to-indigo-500 p-1 shadow-2xl shadow-blue-500/20">
-                    <div className="w-full h-full rounded-[22px] bg-slate-900 flex items-center justify-center text-3xl font-black text-blue-400">
-                      {displayInstructor.substring(0, 2).toUpperCase()}
+              {/* CENTER STAGE CONTENT BODY */}
+              <div className="flex-1 flex items-center justify-center p-6 relative overflow-hidden min-h-0">
+                {/* 1. PRESENTATION SLIDE MODE */}
+                {stageMode === "presentation" && (
+                  <div className="w-full h-full max-w-4xl flex flex-col justify-between p-8 rounded-2xl bg-slate-950/90 border border-slate-800/80 backdrop-blur-md shadow-2xl relative overflow-y-auto">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                          {currentSlideData.category}
+                        </span>
+                        <span className="text-slate-600">•</span>
+                        <span className="text-xs text-slate-400">
+                          Instructor: {displayInstructor}
+                        </span>
+                      </div>
+                      <h2 className="text-2xl font-black text-white tracking-tight mb-4">
+                        {currentSlideData.title}
+                      </h2>
+
+                      {/* Bullet Key Points */}
+                      <ul className="space-y-2.5 mb-6">
+                        {currentSlideData.points.map((pt, i) => (
+                          <li
+                            key={i}
+                            className="flex items-start gap-2.5 text-xs text-slate-300 leading-relaxed"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 shrink-0" />
+                            <span>{pt}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {/* Visual Architecture Diagram Box */}
+                      <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono text-emerald-400 whitespace-pre-wrap leading-relaxed shadow-inner">
+                        {currentSlideData.diagram}
+                      </div>
+                    </div>
+
+                    {/* Slide Footer */}
+                    <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500 font-semibold mt-4">
+                      <span>Interactive Live Classroom Session</span>
+                      <span>EduConnect LMS • Production Architecture</span>
                     </div>
                   </div>
-                  <h3 className="text-lg font-bold text-white mb-1">
-                    {displayInstructor}
-                  </h3>
-                  <p className="text-xs text-slate-400 mb-4 flex items-center justify-center gap-1.5">
-                    <Volume2 className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
-                    <span>Active Session • Room #{roomId}</span>
-                  </p>
+                )}
 
-                  {/* Animated Audio Visualizer Waves */}
-                  <div className="flex items-center justify-center gap-1.5 h-8">
-                    {[40, 80, 55, 95, 30, 70, 100, 60, 45, 85, 35].map(
-                      (val, i) => (
-                        <span
-                          key={i}
-                          className="w-1.5 bg-blue-500 rounded-full animate-pulse"
-                          style={{
-                            height: `${val}%`,
-                            animationDelay: `${i * 120}ms`,
-                            animationDuration: "800ms",
-                          }}
-                        />
-                      )
+                {/* 2. REAL SCREEN SHARE VIEW */}
+                {stageMode === "screenshare" && (
+                  <div className="w-full h-full flex items-center justify-center relative bg-black rounded-xl overflow-hidden">
+                    <video
+                      ref={screenVideoRef}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-contain"
+                    />
+                    {!isScreenSharing && (
+                      <div className="text-center p-6">
+                        <MonitorUp className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                        <h4 className="text-sm font-bold text-white mb-1">
+                          No Screen Currently Shared
+                        </h4>
+                        <p className="text-xs text-slate-400 mb-4">
+                          Click "Start Screen Share" below to present your slides or screen.
+                        </p>
+                        <button
+                          onClick={toggleScreenShare}
+                          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition"
+                        >
+                          Start Screen Share
+                        </button>
+                      </div>
                     )}
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Student Webcam PiP Preview (Bottom Right) */}
-              <div className="absolute bottom-5 right-5 w-56 h-40 rounded-2xl bg-slate-800/90 border border-slate-700/80 shadow-2xl overflow-hidden flex flex-col justify-between p-3 backdrop-blur-md z-10">
-                <div className="flex items-center justify-between z-10">
-                  <span className="text-[11px] font-bold text-slate-200 drop-shadow-md">
-                    You ({currentUserName})
-                  </span>
-                  <div className="flex items-center gap-1">
-                    {isMicOn ? (
-                      <span className="p-1 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        <Mic className="w-3 h-3" />
+                {/* 3. LIVE CODE ARCHITECTURE VIEW */}
+                {stageMode === "code" && (
+                  <div className="w-full h-full max-w-4xl flex flex-col p-6 rounded-2xl bg-slate-950/95 border border-slate-800 shadow-2xl overflow-y-auto">
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                      <div className="flex items-center gap-2">
+                        <Code2 className="w-4 h-4 text-emerald-400" />
+                        <span className="text-xs font-bold font-mono text-slate-200">
+                          cluster-worker.js
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        Node.js v22 • Socket.io Redis Adapter
                       </span>
-                    ) : (
-                      <span className="p-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
-                        <MicOff className="w-3 h-3" />
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Webcam Video Container */}
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className={`w-full h-full object-cover ${
-                      isVideoOn ? "block" : "hidden"
-                    }`}
-                  />
-                  {!isVideoOn && (
-                    <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-sm text-slate-300">
-                      {currentUserName.charAt(0).toUpperCase()}
                     </div>
-                  )}
-                </div>
+                    <pre className="text-xs font-mono text-emerald-300 leading-relaxed overflow-x-auto">
+                      <code>{currentSlideData.code}</code>
+                    </pre>
+                  </div>
+                )}
 
-                <div className="text-[10px] text-slate-300 font-semibold z-10 truncate drop-shadow-md flex items-center justify-between">
-                  <span>{isVideoOn ? "🔴 Cam Active" : "Camera off"}</span>
-                  {isMicOn && (
-                    <span className="flex items-center gap-0.5">
-                      <span className="w-1 h-2 bg-emerald-400 animate-pulse rounded-full" />
-                      <span className="w-1 h-3 bg-emerald-400 animate-pulse rounded-full" />
-                      <span className="w-1 h-2 bg-emerald-400 animate-pulse rounded-full" />
+                {/* Student Webcam PiP Preview (Bottom Right) */}
+                <div className="absolute bottom-4 right-4 w-52 h-36 rounded-2xl bg-slate-900/90 border border-slate-700/80 shadow-2xl overflow-hidden flex flex-col justify-between p-2.5 backdrop-blur-md z-10">
+                  <div className="flex items-center justify-between z-10">
+                    <span className="text-[10px] font-bold text-slate-200 drop-shadow-md">
+                      You ({currentUserName})
                     </span>
-                  )}
+                    <div className="flex items-center gap-1">
+                      {isMicOn ? (
+                        <span className="p-1 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          <Mic className="w-3 h-3" />
+                        </span>
+                      ) : (
+                        <span className="p-1 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+                          <MicOff className="w-3 h-3" />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Webcam Video Element */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+                    <video
+                      ref={localVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className={`w-full h-full object-cover ${
+                        isVideoOn ? "block" : "hidden"
+                      }`}
+                    />
+                    {!isVideoOn && (
+                      <div className="w-12 h-12 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-sm text-slate-300">
+                        {currentUserName.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-[9px] text-slate-300 font-semibold z-10 truncate drop-shadow-md flex items-center justify-between">
+                    <span>{isVideoOn ? "🔴 Cam Active" : "Camera off"}</span>
+                    {isMicOn && (
+                      <span className="flex items-center gap-0.5">
+                        <span className="w-1 h-2 bg-emerald-400 animate-pulse rounded-full" />
+                        <span className="w-1 h-3 bg-emerald-400 animate-pulse rounded-full" />
+                        <span className="w-1 h-2 bg-emerald-400 animate-pulse rounded-full" />
+                      </span>
+                    )}
+                  </div>
                 </div>
+              </div>
+
+              {/* Stage Bottom Footer */}
+              <div className="px-5 py-2.5 border-t border-slate-800/80 bg-slate-900/60 backdrop-blur-md flex items-center justify-between text-xs text-slate-400">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Interactive Live Stream Active</span>
+                </div>
+                <span>Click mode buttons on top to toggle Deck, Screen, or Code</span>
               </div>
             </div>
           </div>
