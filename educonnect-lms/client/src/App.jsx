@@ -6,6 +6,10 @@ import Login from "./Pages/Login";
 import Register from "./Pages/Register";
 import CourseWatch from "./Pages/CourseWatch";
 import LiveClassRoom from "./Pages/LiveClassRoom";
+import CourseCatalog from "./Pages/CourseCatalog";
+import MyLearning from "./Pages/MyLearning";
+import Assignments from "./Pages/Assignments";
+import Settings from "./Pages/Settings";
 import { ProtectedRoute, PublicOnlyRoute } from "./Components/ProtectedRoute";
 
 export default function App() {
@@ -65,8 +69,10 @@ export default function App() {
               <div className="pl-64 flex-1 flex flex-col min-w-0">
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
-                  <Route path="/my-learning" element={<Dashboard />} />
-                  <Route path="/courses" element={<Dashboard />} />
+                  <Route path="/my-learning" element={<MyLearning />} />
+                  <Route path="/courses" element={<CourseCatalog />} />
+                  <Route path="/assignments" element={<Assignments />} />
+                  <Route path="/settings" element={<Settings />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </div>
