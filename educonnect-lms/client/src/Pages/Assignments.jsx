@@ -59,31 +59,31 @@ export default function Assignments() {
   });
 
   return (
-    <div className="flex-1 min-h-screen bg-slate-50 font-sans pb-16">
+    <div className="flex-1 min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-16 transition-colors duration-200">
       {/* Header Banner */}
-      <div className="bg-white border-b border-slate-200/80 px-8 py-10">
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 px-8 py-10 transition-colors duration-200">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex flex-col gap-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-600 text-xs font-bold w-fit">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-xs font-bold w-fit">
               <Code2 className="w-4 h-4" />
               <span>Engineering Deliverables</span>
             </div>
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               Assignments & Project Tasks
             </h1>
-            <p className="text-sm text-slate-500 max-w-xl">
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xl">
               Hands-on lab challenges reviewed by senior software architects.
             </p>
           </div>
 
           {/* Filter Tabs */}
-          <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-bold">
+          <div className="inline-flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1 text-xs font-bold">
             <button
               onClick={() => setFilter("all")}
               className={`px-4 py-2 rounded-lg transition ${
                 filter === "all"
-                  ? "bg-white text-slate-900 shadow-xs"
-                  : "text-slate-500 hover:text-slate-900"
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               All ({assignments.length})
@@ -92,8 +92,8 @@ export default function Assignments() {
               onClick={() => setFilter("pending")}
               className={`px-4 py-2 rounded-lg transition ${
                 filter === "pending"
-                  ? "bg-white text-blue-600 shadow-xs"
-                  : "text-slate-500 hover:text-slate-900"
+                  ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               Pending (2)
@@ -102,8 +102,8 @@ export default function Assignments() {
               onClick={() => setFilter("submitted")}
               className={`px-4 py-2 rounded-lg transition ${
                 filter === "submitted"
-                  ? "bg-white text-emerald-600 shadow-xs"
-                  : "text-slate-500 hover:text-slate-900"
+                  ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               Completed (1)
@@ -117,14 +117,14 @@ export default function Assignments() {
         {filtered.map((item) => (
           <div
             key={item.id}
-            className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs hover:border-slate-300 transition flex flex-col md:flex-row md:items-center justify-between gap-6"
+            className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 transition flex flex-col md:flex-row md:items-center justify-between gap-6"
           >
             <div className="flex items-start gap-4">
               <div
                 className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border ${
                   item.status === "submitted"
-                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                    : "bg-blue-50 text-blue-600 border-blue-200"
+                    ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                    : "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800"
                 }`}
               >
                 <FileText className="w-6 h-6" />
@@ -132,27 +132,27 @@ export default function Assignments() {
 
               <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-600">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
                     {item.tag}
                   </span>
-                  <span className="text-slate-300">•</span>
-                  <span className="text-xs text-slate-400 font-mono font-bold">
+                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                  <span className="text-xs text-slate-400 dark:text-slate-500 font-mono font-bold">
                     {item.id}
                   </span>
-                  <span className="text-slate-300">•</span>
-                  <span className="text-xs text-slate-500">{item.course}</span>
+                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">{item.course}</span>
                 </div>
 
-                <h3 className="text-base font-bold text-slate-900 mt-0.5">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
                   {item.title}
                 </h3>
-                <p className="text-xs text-slate-500 max-w-2xl leading-relaxed">
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
                   {item.description}
                 </p>
 
                 {item.feedback && (
-                  <div className="mt-2 p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                  <div className="mt-2 p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                     <span>
                       <strong>Instructor Feedback:</strong> {item.feedback}
                     </span>
@@ -164,11 +164,11 @@ export default function Assignments() {
             {/* Right Meta & CTA */}
             <div className="flex items-center gap-4 shrink-0 self-end md:self-center">
               <div className="flex flex-col items-end">
-                <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
+                <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-semibold">
                   <Calendar className="w-3.5 h-3.5" />
                   <span>Due {item.dueDate}</span>
                 </div>
-                <span className="text-xs font-bold text-slate-700 mt-1">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-1">
                   {item.grade ? `Graded: ${item.grade}` : item.points}
                 </span>
               </div>
@@ -182,7 +182,7 @@ export default function Assignments() {
                   <span>Submit Work</span>
                 </button>
               ) : (
-                <span className="px-3 py-1.5 rounded-xl bg-emerald-100/80 text-emerald-700 text-xs font-bold flex items-center gap-1">
+                <span className="px-3 py-1.5 rounded-xl bg-emerald-100/80 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-xs font-bold flex items-center gap-1 border border-emerald-200 dark:border-emerald-800">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Submitted</span>
                 </span>

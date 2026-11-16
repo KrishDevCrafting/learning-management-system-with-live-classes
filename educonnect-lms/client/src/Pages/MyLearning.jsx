@@ -77,49 +77,49 @@ export default function MyLearning() {
   }, []);
 
   return (
-    <div className="flex-1 min-h-screen bg-slate-50 font-sans pb-16">
+    <div className="flex-1 min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-16 transition-colors duration-200">
       {/* Header Banner */}
-      <div className="bg-white border-b border-slate-200/80 px-8 py-10">
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 px-8 py-10 transition-colors duration-200">
         <div className="max-w-7xl mx-auto flex flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 text-xs font-bold w-fit">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-xs font-bold w-fit">
               <TrendingUp className="w-4 h-4" />
               <span>Student Progress Headquarters</span>
             </div>
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               My Learning
             </h1>
-            <p className="text-sm text-slate-500 max-w-xl">
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xl">
               Track your active courses, completed video lessons, and system architecture milestones.
             </p>
           </div>
 
           {/* Quick Metrics Bar */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 flex flex-col">
-              <span className="text-xs text-slate-500 font-semibold">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-750 flex flex-col">
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
                 Courses In Progress
               </span>
-              <span className="text-2xl font-black text-slate-900 mt-1">
+              <span className="text-2xl font-black text-slate-900 dark:text-white mt-1">
                 {courses.length}
               </span>
             </div>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 flex flex-col">
-              <span className="text-xs text-slate-500 font-semibold">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-750 flex flex-col">
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
                 Lessons Completed
               </span>
-              <span className="text-2xl font-black text-blue-600 mt-1">3</span>
+              <span className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">3</span>
             </div>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 flex flex-col">
-              <span className="text-xs text-slate-500 font-semibold">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-750 flex flex-col">
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
                 Total Study Time
               </span>
-              <span className="text-2xl font-black text-emerald-600 mt-1">
+              <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
                 14.5 hrs
               </span>
             </div>
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 flex flex-col">
-              <span className="text-xs text-slate-500 font-semibold">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-750 flex flex-col">
+              <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
                 Certificates Earned
               </span>
               <span className="text-2xl font-black text-amber-500 mt-1">1</span>
@@ -130,7 +130,7 @@ export default function MyLearning() {
 
       {/* Main Enrolled Content */}
       <div className="max-w-7xl mx-auto px-8 mt-8 flex flex-col gap-6">
-        <h2 className="text-lg font-bold text-slate-900">
+        <h2 className="text-lg font-bold text-slate-900 dark:text-white">
           Enrolled Tracks & Active Progress
         </h2>
 
@@ -138,7 +138,7 @@ export default function MyLearning() {
           {courses.map((course) => (
             <div
               key={course._id}
-              className="bg-white rounded-2xl border border-slate-200/80 p-5 flex flex-col justify-between gap-5 shadow-xs hover:shadow-md transition"
+              className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 flex flex-col justify-between gap-5 shadow-xs hover:shadow-md transition"
             >
               <div className="flex gap-4">
                 <img
@@ -147,28 +147,28 @@ export default function MyLearning() {
                   className="w-24 h-24 rounded-xl object-cover shrink-0 bg-slate-900"
                 />
                 <div className="flex flex-col gap-1 min-w-0">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-600">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400">
                     {course.category}
                   </span>
-                  <h3 className="text-sm font-bold text-slate-900 line-clamp-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-2">
                     {course.title}
                   </h3>
-                  <p className="text-xs text-slate-500 truncate flex items-center gap-1.5 mt-1">
-                    <Play className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5 mt-1">
+                    <Play className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
                     <span>{course.nextLesson}</span>
                   </p>
                 </div>
               </div>
 
               {/* Progress Engine */}
-              <div className="flex flex-col gap-2 pt-3 border-t border-slate-100">
+              <div className="flex flex-col gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex justify-between items-center text-xs font-semibold">
-                  <span className="text-slate-500">
+                  <span className="text-slate-500 dark:text-slate-400">
                     {course.completedLessons} of {course.totalLessons} Lessons Done
                   </span>
-                  <span className="text-blue-600 font-bold">{course.progress}%</span>
+                  <span className="text-blue-600 dark:text-blue-400 font-bold">{course.progress}%</span>
                 </div>
-                <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
                   <div
                     className="h-full bg-blue-600 rounded-full transition-all duration-500"
                     style={{ width: `${course.progress}%` }}
@@ -177,7 +177,7 @@ export default function MyLearning() {
               </div>
 
               <div className="flex items-center justify-between pt-2">
-                <span className="text-xs text-slate-400 font-medium">
+                <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
                   Last active: {course.lastActive}
                 </span>
                 <Link
