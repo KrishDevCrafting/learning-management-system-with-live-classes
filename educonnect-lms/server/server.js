@@ -3,6 +3,7 @@ import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 import { connectDB } from "./config/db.js";
 
 import authRoutes from "./routes/authRoutes.js";
@@ -44,9 +45,14 @@ app.use(express.json());
 
 // Health Check Endpoint
 app.get("/health", (req, res) => {
+  const dbState = mongoose.connection.readyState;
   res.status(200).json({
-    status: "ok",
-    database: "MongoDB Atlas Connected",
+    status: dbState === 1 ? "ok" : "db_disconnected",
+    database:
+      dbState === 1
+        ? "MongoDB Atlas Connected"
+        : "MongoDB Disconnected (Check MONGO_URI on Render & Atlas IP Access List 0.0.0.0/0)",
+    readyState: dbState,
     service: "EduConnect LMS Backend Server",
   });
 });
