@@ -3,54 +3,58 @@ import ffmpeg from "fluent-ffmpeg";
 import { redisConnection } from "../config/queue.js";
 import Lesson from "../models/Lesson.js";
 
-// BullMQ Worker to process uploaded lesson videos
-const videoWorker = new Worker(
-  "video-processing-queue",
-  async (job) => {
-    const { lessonId, filePath, filename } = job.data;
-    console.log(`🎬 [BullMQ Worker] Processing video for Lesson ID: ${lessonId}...`);
+// BullMQ Worker to process uploaded lesson videos (only initialized if Redis is online)
+let videoWorker = null;
 
-    // Probe video metadata (duration, codec) using FFmpeg
-    return new Promise((resolve, reject) => {
-      ffmpeg.ffprobe(filePath, async (err, metadata) => {
-        if (err) {
-          console.error(`❌ [BullMQ Worker] FFprobe error for ${filename}:`, err);
-          return reject(err);
-        }
+if (redisConnection) {
+  videoWorker = new Worker(
+    "video-processing-queue",
+    async (job) => {
+      const { lessonId, filePath, filename } = job.data;
+      console.log(`🎬 [BullMQ Worker] Processing video for Lesson ID: ${lessonId}...`);
 
-        const durationInSeconds = Math.round(metadata?.format?.duration || 0);
+      // Probe video metadata (duration, codec) using FFmpeg
+      return new Promise((resolve, reject) => {
+        ffmpeg.ffprobe(filePath, async (err, metadata) => {
+          if (err) {
+            console.error(`❌ [BullMQ Worker] FFprobe error for ${filename}:`, err);
+            return reject(err);
+          }
 
-        try {
-          // Update Lesson document in MongoDB
-          const updatedLesson = await Lesson.findByIdAndUpdate(
-            lessonId,
-            {
-              videoUrl: `/uploads/videos/${filename}`,
-              videoDuration: durationInSeconds,
-            },
-            { new: true }
-          );
+          const durationInSeconds = Math.round(metadata?.format?.duration || 0);
 
-          console.log(
-            `✅ [BullMQ Worker] Lesson ${lessonId} updated! Duration: ${durationInSeconds}s`
-          );
-          resolve(updatedLesson);
-        } catch (dbError) {
-          console.error(`❌ [BullMQ Worker] DB update error:`, dbError);
-          reject(dbError);
-        }
+          try {
+            // Update Lesson document in MongoDB
+            const updatedLesson = await Lesson.findByIdAndUpdate(
+              lessonId,
+              {
+                videoUrl: `/uploads/videos/${filename}`,
+                videoDuration: durationInSeconds,
+              },
+              { new: true }
+            );
+
+            console.log(
+              `✅ [BullMQ Worker] Lesson ${lessonId} updated! Duration: ${durationInSeconds}s`
+            );
+            resolve(updatedLesson);
+          } catch (dbError) {
+            console.error(`❌ [BullMQ Worker] DB update error:`, dbError);
+            reject(dbError);
+          }
+        });
       });
-    });
-  },
-  { connection: redisConnection }
-);
+    },
+    { connection: redisConnection }
+  );
 
-videoWorker.on("completed", (job) => {
-  console.log(`🎉 [BullMQ Worker] Job ${job.id} completed successfully!`);
-});
+  videoWorker.on("completed", (job) => {
+    console.log(`🎉 [BullMQ Worker] Job ${job.id} completed successfully!`);
+  });
 
-videoWorker.on("failed", (job, err) => {
-  console.error(`💥 [BullMQ Worker] Job ${job?.id} failed:`, err.message);
-});
+  videoWorker.on("failed", (job, err) => {
+    console.error(`💥 [BullMQ Worker] Job ${job?.id} failed:`, err.message);
+  });
+}
 
 export default videoWorker;

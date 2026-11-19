@@ -368,7 +368,7 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
         ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "")
         : null) ||
       (import.meta.env.PROD
-        ? "https://educonnect-lms-server.onrender.com"
+        ? "https://learning-management-system-with-live-x2a7.onrender.com"
         : "http://localhost:5000");
 
     const s = io(socketBase, {

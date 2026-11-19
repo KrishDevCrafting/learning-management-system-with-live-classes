@@ -4,7 +4,7 @@ const API = axios.create({
   baseURL:
     import.meta.env.VITE_API_URL ||
     (import.meta.env.PROD
-      ? "https://educonnect-lms-server.onrender.com/api"
+      ? "https://learning-management-system-with-live-x2a7.onrender.com/api"
       : "http://localhost:5000/api"),
 });
 

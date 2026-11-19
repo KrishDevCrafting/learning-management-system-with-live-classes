@@ -169,7 +169,7 @@ export default function CourseWatch() {
                         import.meta.env.VITE_API_URL
                           ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "")
                           : import.meta.env.PROD
-                          ? "https://educonnect-lms-server.onrender.com"
+                          ? "https://learning-management-system-with-live-x2a7.onrender.com"
                           : "http://localhost:5000"
                       }${activeLesson.videoUrl}`
                 }
