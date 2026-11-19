@@ -213,7 +213,7 @@ export default function InstructorDashboard() {
   return (
     <div className="flex-1 min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-16 transition-colors duration-200">
       {/* Header Banner */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 px-8 py-8 transition-colors duration-200">
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 md:px-8 py-6 sm:py-8 transition-colors duration-200">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-start gap-3">
             {collapsed && (
@@ -234,20 +234,20 @@ export default function InstructorDashboard() {
                   Instructor Studio
                 </span>
               </div>
-              <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                 Instructor Studio
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xl">
+              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl">
                 Create courses, schedule live sessions, and manage your teaching content from one unified studio.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             <button
               type="button"
               onClick={() => setShowCreateCourse(true)}
-              className="h-10 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-md shadow-blue-500/20 transition active:scale-[0.98] cursor-pointer"
+              className="h-9.5 sm:h-10 px-3.5 sm:px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-md shadow-blue-500/20 transition active:scale-[0.98] cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>New Course</span>
@@ -255,7 +255,7 @@ export default function InstructorDashboard() {
             <button
               type="button"
               onClick={() => setShowCreateLive(true)}
-              className="h-10 px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-2 shadow-md shadow-red-500/20 transition active:scale-[0.98] cursor-pointer"
+              className="h-9.5 sm:h-10 px-3.5 sm:px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-2 shadow-md shadow-red-500/20 transition active:scale-[0.98] cursor-pointer"
             >
               <Radio className="w-4 h-4" />
               <span>Schedule Live Class</span>
@@ -264,7 +264,7 @@ export default function InstructorDashboard() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 mt-8 flex flex-col gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 mt-6 sm:mt-8 flex flex-col gap-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="flex items-center gap-3 p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">

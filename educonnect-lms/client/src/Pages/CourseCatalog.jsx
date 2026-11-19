@@ -125,17 +125,17 @@ export default function CourseCatalog() {
   return (
     <div className="flex-1 min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-16 transition-colors duration-200">
       {/* Header Banner */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 px-8 py-10 transition-colors duration-200">
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 md:px-8 py-6 sm:py-10 transition-colors duration-200">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex flex-col gap-2">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-xs font-bold w-fit">
               <GraduationCap className="w-4 h-4" />
               <span>Curated Engineering Syllabus</span>
             </div>
-            <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
               Course Catalog
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xl">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl">
               Production-grade curriculum built for software engineers, backend
               architects, and systems builders.
             </p>
@@ -155,7 +155,7 @@ export default function CourseCatalog() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 mt-8 flex flex-col gap-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 mt-6 sm:mt-8 flex flex-col gap-6">
         {/* Filter Pills */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
           {/* Category Tabs */}

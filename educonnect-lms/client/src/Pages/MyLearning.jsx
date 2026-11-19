@@ -79,7 +79,7 @@ export default function MyLearning() {
   return (
     <div className="flex-1 min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans pb-16 transition-colors duration-200">
       {/* Header Banner */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 px-8 py-10 transition-colors duration-200">
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 md:px-8 py-6 sm:py-10 transition-colors duration-200">
         <div className="max-w-7xl mx-auto flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 text-xs font-bold w-fit">
@@ -129,7 +129,7 @@ export default function MyLearning() {
       </div>
 
       {/* Main Enrolled Content */}
-      <div className="max-w-7xl mx-auto px-8 mt-8 flex flex-col gap-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 mt-6 sm:mt-8 flex flex-col gap-6">
         <h2 className="text-lg font-bold text-slate-900 dark:text-white">
           Enrolled Tracks & Active Progress
         </h2>

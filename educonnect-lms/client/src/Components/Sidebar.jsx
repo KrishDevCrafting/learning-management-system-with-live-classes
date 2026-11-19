@@ -17,7 +17,7 @@ import {
 
 export default function Sidebar() {
   const { user, logout, isInstructor } = useAuth();
-  const { collapsed, toggleSidebar } = useSidebar();
+  const { collapsed, toggleSidebar, closeMobileSidebar } = useSidebar();
   const location = useLocation();
 
   const studentItems = [
@@ -64,14 +64,18 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen w-64 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col justify-between z-50 shadow-xs font-sans transition-all duration-300 ${
+      className={`fixed left-0 top-0 h-screen w-72 max-w-[85vw] md:w-64 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col justify-between z-50 shadow-2xl md:shadow-xs font-sans transition-all duration-300 ${
         collapsed ? "-translate-x-full" : "translate-x-0"
       }`}
     >
       {/* Brand Header with Custom Logo */}
       <div className="flex flex-col">
         <div className="h-16 px-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
-          <Link to="/" className="flex items-center gap-2 group min-w-0">
+          <Link
+            to="/"
+            onClick={() => closeMobileSidebar()}
+            className="flex items-center gap-2 group min-w-0"
+          >
             {/* Custom Modern SVG Logo */}
             <div className="relative w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25 group-hover:scale-105 transition-all duration-200 shrink-0">
               <svg
@@ -122,6 +126,7 @@ export default function Sidebar() {
               <Link
                 key={item.label}
                 to={item.path}
+                onClick={() => closeMobileSidebar()}
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
                   isActive
                     ? "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 shadow-xs"
@@ -189,6 +194,7 @@ export default function Sidebar() {
           <div className="inline-flex items-center rounded-lg bg-slate-200/60 dark:bg-slate-800 p-0.5">
             <Link
               to="/"
+              onClick={() => closeMobileSidebar()}
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
                 location.pathname !== "/instructor/dashboard"
                   ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs"
@@ -199,6 +205,7 @@ export default function Sidebar() {
             </Link>
             <Link
               to="/instructor/dashboard"
+              onClick={() => closeMobileSidebar()}
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
                 location.pathname === "/instructor/dashboard"
                   ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs"

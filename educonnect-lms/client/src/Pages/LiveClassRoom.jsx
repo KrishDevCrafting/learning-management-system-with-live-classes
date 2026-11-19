@@ -46,6 +46,9 @@ export default function LiveClassRoom() {
   const [stageMode, setStageMode] = useState("presentation");
   const [currentSlide, setCurrentSlide] = useState(0);
 
+  // Mobile Layout Tab View: 'stage' | 'chat'
+  const [mobileView, setMobileView] = useState("stage");
+
   // Screen Share Status & Fallbacks
   const [screenShareError, setScreenShareError] = useState(null);
   const [useVirtualScreen, setUseVirtualScreen] = useState(false);
@@ -840,6 +843,20 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
 
         {/* Right Header Status */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Mobile Chat / Stage Toggle Switcher */}
+          <button
+            type="button"
+            onClick={() => setMobileView(mobileView === "stage" ? "chat" : "stage")}
+            className={`lg:hidden flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition ${
+              mobileView === "chat"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            <span>{mobileView === "chat" ? "Stage" : "Chat"}</span>
+          </button>
+
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-xs font-medium">
             <ShieldCheck className="w-3.5 h-3.5" />
             <span>MongoDB Verified</span>
@@ -857,9 +874,13 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
       </header>
 
       {/* 2. MAIN SPLIT BODY */}
-      <div className="flex-1 flex min-h-0 relative">
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 relative overflow-hidden">
         {/* LEFT / CENTER: VIDEO STREAM STAGE (75%) */}
-        <section className="flex-1 flex flex-col bg-slate-100/60 dark:bg-slate-950 relative min-w-0 transition-colors duration-200">
+        <section
+          className={`flex-1 flex-col bg-slate-100/60 dark:bg-slate-950 relative min-w-0 transition-colors duration-200 ${
+            mobileView === "stage" ? "flex" : "hidden lg:flex"
+          }`}
+        >
           {/* Main Visual Stream Display */}
           <div className="flex-1 relative flex items-center justify-center p-3 sm:p-4 min-h-0">
             <div className="w-full h-full max-w-6xl rounded-2xl bg-white dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-950 border border-slate-200/90 dark:border-slate-800/80 shadow-lg dark:shadow-2xl relative overflow-hidden flex flex-col justify-between transition-colors duration-200">
@@ -1236,9 +1257,9 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                 )}
 
                 {/* Student Webcam PiP Preview (Bottom Right) */}
-                <div className="absolute bottom-4 right-4 w-44 sm:w-52 h-32 sm:h-36 rounded-2xl bg-white/95 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700/80 shadow-xl overflow-hidden flex flex-col justify-between p-2.5 backdrop-blur-md z-10 transition-colors duration-200">
+                <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 w-32 sm:w-44 md:w-52 h-24 sm:h-32 md:h-36 rounded-xl sm:rounded-2xl bg-white/95 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700/80 shadow-xl overflow-hidden flex flex-col justify-between p-2 sm:p-2.5 backdrop-blur-md z-10 transition-colors duration-200">
                   <div className="flex items-center justify-between z-10">
-                    <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 drop-shadow-xs">
+                    <span className="text-[10px] font-bold text-slate-800 dark:text-slate-200 drop-shadow-xs truncate max-w-[70px] sm:max-w-none">
                       You ({currentUserName})
                     </span>
                     <div className="flex items-center gap-1">
@@ -1266,14 +1287,14 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                       }`}
                     />
                     {!isVideoOn && (
-                      <div className="w-12 h-12 rounded-full bg-slate-300 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center font-bold text-sm text-slate-700 dark:text-slate-300">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-300 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center font-bold text-xs sm:text-sm text-slate-700 dark:text-slate-300">
                         {currentUserName.charAt(0).toUpperCase()}
                       </div>
                     )}
                   </div>
 
                   <div className="text-[9px] text-slate-700 dark:text-slate-300 font-semibold z-10 truncate drop-shadow-xs flex items-center justify-between">
-                    <span>{isVideoOn ? "🔴 Cam Active" : "Camera off"}</span>
+                    <span>{isVideoOn ? "🔴 Cam" : "Off"}</span>
                     {isMicOn && (
                       <span className="flex items-center gap-0.5">
                         <span className="w-1 h-2 bg-emerald-500 animate-pulse rounded-full" />
@@ -1286,10 +1307,10 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
               </div>
 
               {/* Stage Bottom Footer */}
-              <div className="px-5 py-2.5 border-t border-slate-200 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-900/60 backdrop-blur-md flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-                <div className="flex items-center gap-2">
+              <div className="px-3 sm:px-5 py-2 sm:py-2.5 border-t border-slate-200 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-900/60 backdrop-blur-md flex items-center justify-between text-[11px] sm:text-xs text-slate-500 dark:text-slate-400">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Interactive Live Stream Active</span>
+                  <span className="truncate">Live Stream Active</span>
                 </div>
                 <span className="hidden sm:inline">Click mode buttons on top to toggle Deck, Screen, or Code</span>
               </div>
@@ -1297,22 +1318,22 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
           </div>
 
           {/* BOTTOM FLOATING CONTROL DOCK */}
-          <div className="h-20 bg-white/95 dark:bg-slate-900/95 border-t border-slate-200 dark:border-slate-800/90 flex items-center justify-center px-6 shrink-0 transition-colors duration-200">
-            <div className="flex items-center gap-3">
+          <div className="h-16 sm:h-20 bg-white/95 dark:bg-slate-900/95 border-t border-slate-200 dark:border-slate-800/90 flex items-center justify-center px-2 sm:px-6 shrink-0 transition-colors duration-200">
+            <div className="flex items-center gap-1.5 sm:gap-3">
               {/* Mic Button */}
               <button
                 onClick={toggleMic}
                 title={isMicOn ? "Mute Microphone" : "Unmute Microphone"}
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-md ${
+                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition shadow-md ${
                   isMicOn
                     ? "bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 dark:bg-slate-800 dark:text-emerald-400 dark:hover:bg-slate-700 dark:border-emerald-500/40"
                     : "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30 dark:border-red-500/40"
                 }`}
               >
                 {isMicOn ? (
-                  <Mic className="w-5 h-5" />
+                  <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
                 ) : (
-                  <MicOff className="w-5 h-5" />
+                  <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
               </button>
 
@@ -1320,16 +1341,16 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
               <button
                 onClick={toggleVideo}
                 title={isVideoOn ? "Stop Camera" : "Start Camera"}
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-md ${
+                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition shadow-md ${
                   isVideoOn
                     ? "bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 dark:bg-slate-800 dark:text-emerald-400 dark:hover:bg-slate-700 dark:border-emerald-500/50"
                     : "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-500/20 dark:text-red-400 dark:hover:bg-red-500/30 dark:border-red-500/40"
                 }`}
               >
                 {isVideoOn ? (
-                  <Video className="w-5 h-5" />
+                  <Video className="w-4 h-4 sm:w-5 sm:h-5" />
                 ) : (
-                  <VideoOff className="w-5 h-5" />
+                  <VideoOff className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
               </button>
 
@@ -1344,7 +1365,7 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                     ? `Viewing ${remotePresenter.presenterName}'s Screen (Click to share your own)`
                     : "Start Presentation / Screen Share"
                 }
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-md cursor-pointer ${
+                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition shadow-md cursor-pointer ${
                   isScreenSharing || useVirtualScreen
                     ? "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/40 border border-blue-400"
                     : remotePresenter
@@ -1353,9 +1374,9 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                 }`}
               >
                 {isScreenSharing || useVirtualScreen ? (
-                  <MonitorOff className="w-5 h-5" />
+                  <MonitorOff className="w-4 h-4 sm:w-5 sm:h-5" />
                 ) : (
-                  <MonitorUp className="w-5 h-5" />
+                  <MonitorUp className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
               </button>
 
@@ -1363,32 +1384,51 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
               <button
                 onClick={toggleRaiseHand}
                 title={isHandRaised ? "Lower Hand" : "Raise Hand to Ask Question"}
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-md ${
+                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition shadow-md ${
                   isHandRaised
                     ? "bg-amber-500 text-slate-950 font-bold shadow-amber-500/40 scale-105"
                     : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:border-slate-700"
                 }`}
               >
-                <Hand className="w-5 h-5" />
+                <Hand className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
-              <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-2" />
+              {/* Mobile Chat View Toggle Button */}
+              <button
+                type="button"
+                onClick={() => setMobileView(mobileView === "stage" ? "chat" : "stage")}
+                className={`lg:hidden w-10 h-10 rounded-xl flex items-center justify-center transition shadow-md ${
+                  mobileView === "chat"
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                }`}
+                title="Toggle Live Chat & Q&A"
+              >
+                <MessageSquare className="w-4 h-4" />
+              </button>
+
+              <div className="h-6 sm:h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1 sm:mx-2" />
 
               {/* Leave Call Button */}
               <button
                 onClick={() => navigate("/")}
                 title="Leave Classroom"
-                className="px-5 h-12 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-red-600/30 transition active:scale-95"
+                className="px-3 sm:px-5 h-10 sm:h-12 rounded-xl sm:rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] sm:text-xs uppercase tracking-wider flex items-center gap-1.5 sm:gap-2 shadow-lg shadow-red-600/30 transition active:scale-95"
               >
-                <PhoneOff className="w-4 h-4" />
-                <span>Leave Class</span>
+                <PhoneOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Leave Class</span>
+                <span className="inline sm:hidden">Leave</span>
               </button>
             </div>
           </div>
         </section>
 
-        {/* RIGHT: REAL-TIME SOCKET.IO CHAT PANEL (25%) */}
-        <aside className="w-80 lg:w-96 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col shrink-0 transition-colors duration-200">
+        {/* RIGHT: REAL-TIME SOCKET.IO CHAT PANEL (25% on desktop, full view on mobile) */}
+        <aside
+          className={`w-full lg:w-96 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex-col shrink-0 transition-colors duration-200 ${
+            mobileView === "chat" ? "flex flex-1 h-full" : "hidden lg:flex"
+          }`}
+        >
           {/* Chat Header */}
           <div className="h-14 px-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">

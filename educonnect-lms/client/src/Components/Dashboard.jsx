@@ -200,19 +200,19 @@ export default function Dashboard() {
   return (
     <div className="flex-1 min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
       {/* 1. Header Toolbar */}
-      <header className="sticky top-0 z-40 h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-8 flex items-center justify-between shadow-xs transition-colors duration-200">
+      <header className="sticky top-0 z-40 h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 lg:px-8 flex items-center justify-between shadow-xs transition-colors duration-200">
         {/* Breadcrumb & Sidebar Toggle */}
-        <div className="flex items-center gap-3">
-          {collapsed && (
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              title="Show Navigation Sidebar"
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
-            >
-              <PanelLeft className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            </button>
-          )}
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            title={collapsed ? "Show Navigation Sidebar" : "Hide Navigation Sidebar"}
+            className={`p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer ${
+              collapsed ? "block" : "block md:hidden"
+            }`}
+          >
+            <PanelLeft className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+          </button>
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
               <span>EduConnect</span>
@@ -228,9 +228,9 @@ export default function Dashboard() {
         </div>
 
         {/* Search, Theme Toggle, Notifications & Action */}
-        <div className="flex items-center gap-3">
-          {/* Interactive Search Bar */}
-          <div className="relative w-80">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Interactive Search Bar (Desktop) */}
+          <div className="relative hidden md:block w-64 lg:w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               ref={searchInputRef}
@@ -419,16 +419,34 @@ export default function Dashboard() {
 
           <Link
             to="/courses"
-            className="h-9.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition active:scale-[0.98]"
+            className="h-9 sm:h-9.5 px-3 sm:px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition active:scale-[0.98]"
           >
             <Plus className="w-4 h-4" />
-            <span>Explore Courses</span>
+            <span className="hidden sm:inline">Explore Courses</span>
+            <span className="inline sm:hidden">Explore</span>
           </Link>
         </div>
       </header>
 
       {/* 2. Main Content Container */}
-      <main className="p-8 max-w-7xl mx-auto flex flex-col gap-8">
+      <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto flex flex-col gap-6 sm:gap-8 w-full min-w-0">
+        {/* Mobile Quick Search Bar */}
+        <div className="md:hidden relative w-full">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && searchQuery.trim()) {
+                navigate(`/courses?search=${encodeURIComponent(searchQuery)}`);
+              }
+            }}
+            placeholder="Search courses, stacks, topics..."
+            className="w-full h-10.5 pl-10 pr-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 shadow-xs"
+          />
+        </div>
+
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>

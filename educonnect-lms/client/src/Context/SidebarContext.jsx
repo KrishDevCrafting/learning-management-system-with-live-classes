@@ -4,6 +4,10 @@ const SidebarContext = createContext();
 
 export const SidebarProvider = ({ children }) => {
   const [collapsed, setCollapsed] = useState(() => {
+    // If mobile viewport, default to collapsed
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      return true;
+    }
     return localStorage.getItem("sidebar_collapsed") === "true";
   });
 
@@ -15,8 +19,16 @@ export const SidebarProvider = ({ children }) => {
     });
   };
 
+  const closeMobileSidebar = () => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setCollapsed(true);
+    }
+  };
+
   return (
-    <SidebarContext.Provider value={{ collapsed, setCollapsed, toggleSidebar }}>
+    <SidebarContext.Provider
+      value={{ collapsed, setCollapsed, toggleSidebar, closeMobileSidebar }}
+    >
       {children}
     </SidebarContext.Provider>
   );
@@ -24,6 +36,13 @@ export const SidebarProvider = ({ children }) => {
 
 export const useSidebar = () => {
   const ctx = useContext(SidebarContext);
-  return ctx || { collapsed: false, setCollapsed: () => {}, toggleSidebar: () => {} };
+  return (
+    ctx || {
+      collapsed: false,
+      setCollapsed: () => {},
+      toggleSidebar: () => {},
+      closeMobileSidebar: () => {},
+    }
+  );
 };
 
