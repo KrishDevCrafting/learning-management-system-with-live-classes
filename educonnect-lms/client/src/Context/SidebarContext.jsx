@@ -26,3 +26,4 @@ export const useSidebar = () => {
   const ctx = useContext(SidebarContext);
   return ctx || { collapsed: false, setCollapsed: () => {}, toggleSidebar: () => {} };
 };
+
