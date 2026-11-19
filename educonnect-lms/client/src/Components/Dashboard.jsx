@@ -23,11 +23,14 @@ import {
   CheckCircle2,
   ExternalLink,
   BookOpen,
+  PanelLeft,
 } from "lucide-react";
 import { useAuth } from "../Context/AuthContext";
+import { useSidebar } from "../Context/SidebarContext";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { collapsed, toggleSidebar } = useSidebar();
   const navigate = useNavigate();
   const searchInputRef = useRef(null);
   const notificationRef = useRef(null);
@@ -198,18 +201,30 @@ export default function Dashboard() {
     <div className="flex-1 min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
       {/* 1. Header Toolbar */}
       <header className="sticky top-0 z-40 h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-8 flex items-center justify-between shadow-xs transition-colors duration-200">
-        {/* Breadcrumb */}
-        <div className="flex flex-col">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
-            <span>EduConnect</span>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-blue-600 dark:text-blue-400 font-semibold">
-              Dashboard
+        {/* Breadcrumb & Sidebar Toggle */}
+        <div className="flex items-center gap-3">
+          {collapsed && (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Show Navigation Sidebar"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer"
+            >
+              <PanelLeft className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            </button>
+          )}
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+              <span>EduConnect</span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-blue-600 dark:text-blue-400 font-semibold">
+                Dashboard
+              </span>
+            </div>
+            <span className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold mt-0.5">
+              Student Overview
             </span>
           </div>
-          <span className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold mt-0.5">
-            Student Overview
-          </span>
         </div>
 
         {/* Search, Theme Toggle, Notifications & Action */}

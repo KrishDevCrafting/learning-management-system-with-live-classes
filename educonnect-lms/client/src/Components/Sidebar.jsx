@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext";
 import ThemeToggle from "./ThemeToggle";
+import { useSidebar } from "../Context/SidebarContext";
 import {
   LayoutDashboard,
   Terminal,
@@ -12,10 +13,12 @@ import {
   GraduationCap,
   LogOut,
   PenLine,
+  PanelLeftClose,
 } from "lucide-react";
 
 export default function Sidebar() {
   const { user, logout, isInstructor } = useAuth();
+  const { collapsed, toggleSidebar } = useSidebar();
   const location = useLocation();
 
   const studentItems = [
@@ -61,11 +64,15 @@ export default function Sidebar() {
   const navItems = isInstructor ? instructorItems : studentItems;
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col justify-between z-50 shadow-xs font-sans transition-colors duration-200">
+    <aside
+      className={`fixed left-0 top-0 h-screen w-64 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col justify-between z-50 shadow-xs font-sans transition-all duration-300 ${
+        collapsed ? "-translate-x-full" : "translate-x-0"
+      }`}
+    >
       {/* Brand Header with Custom Logo */}
       <div className="flex flex-col">
-        <div className="h-16 px-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
-          <Link to="/" className="flex items-center gap-2.5 group">
+        <div className="h-16 px-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+          <Link to="/" className="flex items-center gap-2 group min-w-0">
             {/* Custom Modern SVG Logo */}
             <div className="relative w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25 group-hover:scale-105 transition-all duration-200 shrink-0">
               <svg
@@ -91,12 +98,22 @@ export default function Sidebar() {
                   LMS
                 </span>
               </div>
-              <span className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold mt-1">
+              <span className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold mt-1 truncate">
                 Engineering Platform
               </span>
             </div>
           </Link>
-          <ThemeToggle />
+          <div className="flex items-center gap-1 shrink-0">
+            <ThemeToggle />
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Collapse Sidebar"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            >
+              <PanelLeftClose className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Navigation Items */}
