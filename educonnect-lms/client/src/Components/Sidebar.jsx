@@ -11,13 +11,14 @@ import {
   Settings,
   GraduationCap,
   LogOut,
+  PenLine,
 } from "lucide-react";
 
 export default function Sidebar() {
   const { user, logout, isInstructor } = useAuth();
   const location = useLocation();
 
-  const navItems = [
+  const studentItems = [
     { label: "Dashboard", path: "/", icon: LayoutDashboard },
     { label: "My Learning", path: "/my-learning", icon: Terminal },
     { label: "Course Catalog", path: "/courses", icon: BookOpen },
@@ -32,6 +33,30 @@ export default function Sidebar() {
     { label: "Assignments", path: "/assignments", icon: FileText, count: 3 },
     { label: "Settings", path: "/settings", icon: Settings },
   ];
+
+  const instructorItems = [
+    {
+      label: "Instructor Studio",
+      path: "/instructor/dashboard",
+      icon: PenLine,
+      badge: "PRO",
+      badgeColor:
+        "bg-blue-500/10 dark:bg-blue-500/20 text-blue-500 border border-blue-500/20",
+    },
+    { label: "Course Catalog", path: "/courses", icon: BookOpen },
+    {
+      label: "Live Classrooms",
+      path: "/live",
+      icon: Radio,
+      badge: "LIVE",
+      badgeColor:
+        "bg-red-500/10 dark:bg-red-500/20 text-red-500 border border-red-500/20",
+    },
+    { label: "Assignments", path: "/assignments", icon: FileText },
+    { label: "Settings", path: "/settings", icon: Settings },
+  ];
+
+  const navItems = isInstructor ? instructorItems : studentItems;
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col justify-between z-50 shadow-xs font-sans transition-colors duration-200">
