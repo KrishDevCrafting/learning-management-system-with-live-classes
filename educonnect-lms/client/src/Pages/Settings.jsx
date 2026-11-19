@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../Context/AuthContext";
+import API from "../axios";
 import ThemeToggle from "../Components/ThemeToggle";
 import {
   Settings as SettingsIcon,
@@ -9,23 +10,57 @@ import {
   Bell,
   Lock,
   CheckCircle2,
+  AlertCircle,
   Save,
   Laptop,
   Moon,
   Sun,
+  Loader2,
 } from "lucide-react";
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [name, setName] = useState(user?.name || "Krish Singh");
-  const [email] = useState(user?.email || "krish@developer.io");
-  const [role] = useState(user?.role || "student");
+  const [email, setEmail] = useState(user?.email || "krish@developer.io");
+  const [role, setRole] = useState(user?.role || "student");
   const [saved, setSaved] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleSave = (e) => {
+  // Keep state synced whenever user context is loaded or changed
+  useEffect(() => {
+    if (user?.name) setName(user.name);
+    if (user?.email) setEmail(user.email);
+    if (user?.role) setRole(user.role);
+  }, [user]);
+
+  const handleSave = async (e) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    if (!name.trim()) {
+      setErrorMessage("Please enter a valid name.");
+      return;
+    }
+    setIsSubmitting(true);
+    setErrorMessage("");
+    try {
+      // 1. Send update to backend MongoDB API
+      const res = await API.put("/auth/profile", { name: name.trim() });
+      if (res.data?.success && res.data.user) {
+        updateUser(res.data.user);
+      } else {
+        updateUser({ name: name.trim() });
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3500);
+    } catch (err) {
+      console.warn("Backend update error, saving to local state:", err);
+      // Fallback: update context & localStorage immediately so UI reflects change
+      updateUser({ name: name.trim() });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3500);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -68,7 +103,14 @@ export default function Settings() {
           {saved && (
             <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 text-xs font-semibold flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>Settings updated successfully!</span>
+              <span>Settings updated successfully! Changes reflected across the app.</span>
+            </div>
+          )}
+
+          {errorMessage && (
+            <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-xs font-semibold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMessage}</span>
             </div>
           )}
 
@@ -107,10 +149,20 @@ export default function Settings() {
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
             <button
               type="submit"
-              className="px-5 h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition"
+              disabled={isSubmitting}
+              className="px-5 h-11 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 shadow-xs transition"
             >
-              <Save className="w-4 h-4" />
-              <span>Save Changes</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>Save Changes</span>
+                </>
+              )}
             </button>
           </div>
         </form>

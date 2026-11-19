@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import API from "../axios";
 import ThemeToggle from "./ThemeToggle";
 import {
@@ -18,14 +18,69 @@ import {
   ChevronRight,
   Play,
   Loader2,
+  X,
+  CheckCheck,
+  CheckCircle2,
+  ExternalLink,
+  BookOpen,
 } from "lucide-react";
 import { useAuth } from "../Context/AuthContext";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const searchInputRef = useRef(null);
+  const notificationRef = useRef(null);
+
   const [courses, setCourses] = useState([]);
   const [liveClasses, setLiveClasses] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Search Bar State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+
+  // Notification State
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(3);
+  const [notifications, setNotifications] = useState([
+    {
+      id: "notif-1",
+      title: "🔴 Live Stream Active",
+      message: "Real-Time WebSockets & Node.js System Architecture is streaming now.",
+      time: "10 mins ago",
+      link: "/live/LC-WEBSOCKET-2026",
+      read: false,
+      tag: "Live Class",
+    },
+    {
+      id: "notif-2",
+      title: "✅ Assignment Review Complete",
+      message: "Your submission for 'Microservices with Docker' was scored 98/100.",
+      time: "2 hours ago",
+      link: "/assignments",
+      read: false,
+      tag: "Graded",
+    },
+    {
+      id: "notif-3",
+      title: "🚀 Database Cluster Connected",
+      message: "MongoDB Atlas Cluster0 connection validated with low latency.",
+      time: "1 day ago",
+      link: "/settings",
+      read: false,
+      tag: "System",
+    },
+    {
+      id: "notif-4",
+      title: "🎓 Cohort Milestone",
+      message: "Term 02 Advanced Distributed Track syllabus ready for review.",
+      time: "2 days ago",
+      link: "/courses",
+      read: true,
+      tag: "Cohort",
+    },
+  ]);
 
   const defaultCourses = [
     {
@@ -99,6 +154,46 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
+  // Filter courses based on search input
+  const filteredCourses = courses.filter((c) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      c.title?.toLowerCase().includes(q) ||
+      c.category?.toLowerCase().includes(q) ||
+      c.nextLesson?.toLowerCase().includes(q) ||
+      c.instructor?.toLowerCase().includes(q)
+    );
+  });
+
+  // Keyboard shortcut (Cmd+K / Ctrl+K) and outside-click handlers
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+      if (e.key === "Escape") {
+        setShowSearchDropdown(false);
+        setShowNotifications(false);
+      }
+    };
+    const handleClickOutside = (e) => {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(e.target)
+      ) {
+        setShowNotifications(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   return (
     <div className="flex-1 min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
       {/* 1. Header Toolbar */}
@@ -121,24 +216,193 @@ export default function Dashboard() {
 
         {/* Search, Theme Toggle, Notifications & Action */}
         <div className="flex items-center gap-3">
+          {/* Interactive Search Bar */}
           <div className="relative w-80">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
+              ref={searchInputRef}
               type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setShowSearchDropdown(true);
+              }}
+              onFocus={() => {
+                if (searchQuery.trim()) setShowSearchDropdown(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && searchQuery.trim()) {
+                  setShowSearchDropdown(false);
+                  navigate(`/courses?search=${encodeURIComponent(searchQuery)}`);
+                }
+              }}
               placeholder="Search courses, sessions, or lessons... (⌘K)"
               className="w-full h-9.5 pl-9 pr-12 rounded-xl bg-slate-100/70 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-slate-900 transition"
             />
-            <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
-              ⌘K
-            </kbd>
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setShowSearchDropdown(false);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200/70 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+                ⌘K
+              </kbd>
+            )}
+
+            {/* Quick Search Results Dropdown */}
+            {showSearchDropdown && searchQuery.trim() && (
+              <div className="absolute left-0 right-0 top-11 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+                <div className="p-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 dark:bg-slate-800/80 px-3 flex items-center justify-between">
+                  <span>Matching Results ({filteredCourses.length})</span>
+                  <span className="text-[10px] font-normal text-slate-400">Press ↵ to view all</span>
+                </div>
+                <div className="max-h-60 overflow-y-auto">
+                  {filteredCourses.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-500">
+                      No courses found matching "{searchQuery}"
+                    </div>
+                  ) : (
+                    filteredCourses.map((c) => (
+                      <Link
+                        key={c.id || c._id}
+                        to={`/course/${c.id || c._id}/learn`}
+                        onClick={() => setShowSearchDropdown(false)}
+                        className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800/80 flex items-center justify-between transition gap-2 group"
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                            {c.title}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {c.category} • {c.nextLesson}
+                          </span>
+                        </div>
+                        <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition shrink-0" />
+                      </Link>
+                    ))
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSearchDropdown(false);
+                    navigate(`/courses?search=${encodeURIComponent(searchQuery)}`);
+                  }}
+                  className="w-full block p-2 text-center text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/30 hover:bg-blue-100/50 transition cursor-pointer"
+                >
+                  View full search results in catalog →
+                </button>
+              </div>
+            )}
           </div>
 
           <ThemeToggle />
 
-          <button className="relative w-9.5 h-9.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-750 transition">
-            <Bell className="w-4 h-4" />
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900"></span>
-          </button>
+          {/* Interactive Notifications Popover */}
+          <div className="relative" ref={notificationRef}>
+            <button
+              type="button"
+              onClick={() => setShowNotifications((prev) => !prev)}
+              aria-label="Toggle notifications"
+              className={`relative w-9.5 h-9.5 rounded-xl border shadow-xs flex items-center justify-center transition cursor-pointer ${
+                showNotifications
+                  ? "bg-blue-50 dark:bg-blue-950/60 border-blue-400 text-blue-600 dark:text-blue-400"
+                  : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-750"
+              }`}
+            >
+              <Bell className="w-4 h-4" />
+              {unreadCount > 0 && (
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900 animate-pulse"></span>
+              )}
+            </button>
+
+            {/* Notification Dropdown Panel */}
+            {showNotifications && (
+              <div className="absolute right-0 top-12 w-80 sm:w-96 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+                <div className="p-3.5 px-4 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/80">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">Notifications</span>
+                    {unreadCount > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-400">
+                        {unreadCount} new
+                      </span>
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+                        setUnreadCount(0);
+                      }}
+                      className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <CheckCheck className="w-3.5 h-3.5" />
+                      <span>Mark all as read</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {notifications.map((item) => (
+                    <Link
+                      key={item.id}
+                      to={item.link}
+                      onClick={() => {
+                        if (!item.read) {
+                          setNotifications((prev) =>
+                            prev.map((n) => (n.id === item.id ? { ...n, read: true } : n))
+                          );
+                          setUnreadCount((prev) => Math.max(0, prev - 1));
+                        }
+                        setShowNotifications(false);
+                      }}
+                      className={`p-3.5 flex items-start gap-3 transition hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+                        !item.read ? "bg-blue-50/30 dark:bg-blue-950/20" : ""
+                      }`}
+                    >
+                      <div className="mt-1 shrink-0">
+                        {!item.read ? (
+                          <span className="w-2 h-2 rounded-full bg-blue-600 block"></span>
+                        ) : (
+                          <span className="w-2 h-2 rounded-full bg-transparent block"></span>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            {item.title}
+                          </span>
+                          <span className="text-[10px] text-slate-400 shrink-0">{item.time}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                          {item.message}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+
+                <div className="p-2.5 px-4 bg-slate-50 dark:bg-slate-800/80 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-400">EduConnect Live Radar</span>
+                  <Link
+                    to="/assignments"
+                    onClick={() => setShowNotifications(false)}
+                    className="text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+                  >
+                    View All Activity →
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
 
           <Link
             to="/courses"
@@ -269,28 +533,65 @@ export default function Dashboard() {
 
         {/* 3. Active In-Progress Courses Section */}
         <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
               <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                Active In-Progress Courses
+                {searchQuery.trim() ? `Search Results for "${searchQuery}"` : "Active In-Progress Courses"}
               </h2>
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                Cohort 2026
+                {filteredCourses.length} {filteredCourses.length === 1 ? "Course" : "Courses"}
               </span>
             </div>
-            <Link
-              to="/courses"
-              className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 transition flex items-center gap-1 group"
-            >
-              <span>View All Catalog ({courses.length})</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
+            {searchQuery.trim() ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="text-xs font-bold text-red-500 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Reset Search</span>
+              </button>
+            ) : (
+              <Link
+                to="/courses"
+                className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 transition flex items-center gap-1 group"
+              >
+                <span>View All Catalog ({courses.length})</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+            )}
           </div>
 
           {/* Course Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {courses.map((course) => (
+            {filteredCourses.length === 0 ? (
+              <div className="col-span-full py-12 flex flex-col items-center justify-center text-center p-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+                <Search className="w-10 h-10 text-slate-400 mb-3" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1">
+                  No courses found matching "{searchQuery}"
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mb-4">
+                  Try searching with different keywords, technology names like WebSockets, PostgreSQL, or browse all courses in the catalog.
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
+                  >
+                    Clear Filter
+                  </button>
+                  <Link
+                    to="/courses"
+                    className="px-4 py-2 rounded-xl bg-blue-600 text-xs font-bold text-white hover:bg-blue-700 transition"
+                  >
+                    Explore Catalog
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              filteredCourses.map((course) => (
               <div
                 key={course.id || course._id}
                 className="flex flex-col justify-between rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden group hover:-translate-y-0.5"
@@ -375,7 +676,8 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
         </section>
 

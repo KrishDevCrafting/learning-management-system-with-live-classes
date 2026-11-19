@@ -165,7 +165,13 @@ export default function CourseWatch() {
                 src={
                   activeLesson.videoUrl.startsWith("http")
                     ? activeLesson.videoUrl
-                    : `http://localhost:5000${activeLesson.videoUrl}`
+                    : `${
+                        import.meta.env.VITE_API_URL
+                          ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "")
+                          : import.meta.env.PROD
+                          ? "https://educonnect-lms-server.onrender.com"
+                          : "http://localhost:5000"
+                      }${activeLesson.videoUrl}`
                 }
               />
             ) : (

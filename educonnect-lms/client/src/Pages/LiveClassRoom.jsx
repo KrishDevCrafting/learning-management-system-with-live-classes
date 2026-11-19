@@ -152,7 +152,16 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
 
   // 2. Setup Socket.io Connection & Listeners
   useEffect(() => {
-    const s = io("http://localhost:5000", {
+    const socketBase =
+      import.meta.env.VITE_SOCKET_URL ||
+      (import.meta.env.VITE_API_URL
+        ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, "")
+        : null) ||
+      (import.meta.env.PROD
+        ? "https://educonnect-lms-server.onrender.com"
+        : "http://localhost:5000");
+
+    const s = io(socketBase, {
       transports: ["websocket", "polling"],
     });
     socketRef.current = s;

@@ -136,3 +136,56 @@ export const getMe = async (req, res) => {
     });
   }
 };
+
+// @desc    Update user profile (name, avatar, bio)
+// @route   PUT /api/auth/profile
+// @access  Private (Protected)
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, bio, avatar } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Name cannot be empty.",
+      });
+    }
+
+    const userId = req.user?.id || req.user?._id;
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        name: name.trim(),
+        ...(bio !== undefined && { bio }),
+        ...(avatar !== undefined && { avatar }),
+      },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully.",
+      user: {
+        id: updatedUser._id,
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        avatar: updatedUser.avatar,
+        bio: updatedUser.bio,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Server error updating profile.",
+    });
+  }
+};

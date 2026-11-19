@@ -27,6 +27,14 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem("token", userToken);
   };
 
+  const updateUser = (updatedData) => {
+    setUser((prev) => {
+      const merged = { ...(prev || {}), ...updatedData };
+      localStorage.setItem("user", JSON.stringify(merged));
+      return merged;
+    });
+  };
+
   // Login function:
 
   const logout = () => {
@@ -43,6 +51,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         login,
         logout,
+        updateUser,
         isAuthenticated: !!token,
         isInstructor: user?.role == "instructor",
         isStudent: user?.role === "student",
