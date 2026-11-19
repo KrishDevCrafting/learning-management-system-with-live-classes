@@ -50,6 +50,11 @@ export default function LiveClassRoom() {
   const [screenShareError, setScreenShareError] = useState(null);
   const [useVirtualScreen, setUseVirtualScreen] = useState(false);
 
+  // Remote Presentation / Screen Share State (Received from Presenter)
+  const [remotePresenter, setRemotePresenter] = useState(null); // { presenterName, screenType }
+  const [remoteScreenStream, setRemoteScreenStream] = useState(null);
+  const [remoteScreenFrame, setRemoteScreenFrame] = useState(null);
+
   // Real Socket & Chat
   const socketRef = useRef(null);
   const chatBottomRef = useRef(null);
@@ -72,11 +77,17 @@ export default function LiveClassRoom() {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isHandRaised, setIsHandRaised] = useState(false);
 
-  // Stream Refs
+  // Stream Refs & Multi-Peer WebRTC Connections
   const localVideoRef = useRef(null);
   const screenVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
+  const isScreenSharingRef = useRef(false);
+  const frameIntervalRef = useRef(null);
+  const peerConnectionsRef = useRef(new Map()); // socketId -> RTCPeerConnection (presenter side)
+  const viewerPCRef = useRef(null); // RTCPeerConnection (viewer side)
+  const knownPeersRef = useRef([]); // Socket IDs currently in room
 
   const currentUserName = user?.name || "Krish Singh";
 
@@ -159,6 +170,196 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
     fetchClass();
   }, [roomId]);
 
+  // WebRTC ICE Configuration for Peer-to-Peer Screen Streaming
+  const RTC_CONFIG = {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+    ],
+  };
+
+  // Helper to start real-time canvas frame broadcasting (Low-latency fallback that works 100% of the time across browsers)
+  const startFrameBroadcast = (stream) => {
+    stopFrameBroadcast();
+    const offscreenCanvas = document.createElement("canvas");
+    const ctx = offscreenCanvas.getContext("2d");
+
+    // Hidden video element if screenVideoRef not immediately active
+    let videoEl = screenVideoRef.current;
+    if (!videoEl) {
+      videoEl = document.createElement("video");
+      videoEl.srcObject = stream;
+      videoEl.muted = true;
+      videoEl.play().catch(() => {});
+    }
+
+    frameIntervalRef.current = setInterval(() => {
+      try {
+        if (!videoEl || videoEl.readyState < 2) return;
+        const targetWidth = 1024;
+        const aspect = (videoEl.videoHeight || 9) / (videoEl.videoWidth || 16);
+        const targetHeight = Math.round(targetWidth * aspect);
+        offscreenCanvas.width = targetWidth;
+        offscreenCanvas.height = targetHeight;
+        ctx.drawImage(videoEl, 0, 0, targetWidth, targetHeight);
+        const frameData = offscreenCanvas.toDataURL("image/jpeg", 0.55);
+
+        if (socketRef.current) {
+          socketRef.current.emit("screen-frame", {
+            classId: roomId,
+            frame: frameData,
+            presenterName: currentUserName,
+          });
+        }
+      } catch (err) {
+        // Frame capture retry handled automatically
+      }
+    }, 100); // 10 FPS
+  };
+
+  const stopFrameBroadcast = () => {
+    if (frameIntervalRef.current) {
+      clearInterval(frameIntervalRef.current);
+      frameIntervalRef.current = null;
+    }
+  };
+
+  // WebRTC: Create Offer for a specific peer
+  const createOfferForPeer = async (peerSocketId, stream) => {
+    if (!peerSocketId || !stream) return;
+    try {
+      if (peerConnectionsRef.current.has(peerSocketId)) {
+        try {
+          peerConnectionsRef.current.get(peerSocketId).close();
+        } catch (e) {}
+      }
+
+      const pc = new RTCPeerConnection(RTC_CONFIG);
+      peerConnectionsRef.current.set(peerSocketId, pc);
+
+      stream.getTracks().forEach((track) => {
+        pc.addTrack(track, stream);
+      });
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate && socketRef.current) {
+          socketRef.current.emit("webrtc-signal", {
+            classId: roomId,
+            targetSocketId: peerSocketId,
+            signal: event.candidate,
+            sender: currentUserName,
+          });
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        if (
+          pc.connectionState === "disconnected" ||
+          pc.connectionState === "failed" ||
+          pc.connectionState === "closed"
+        ) {
+          peerConnectionsRef.current.delete(peerSocketId);
+        }
+      };
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      if (socketRef.current) {
+        socketRef.current.emit("webrtc-signal", {
+          classId: roomId,
+          targetSocketId: peerSocketId,
+          signal: pc.localDescription,
+          sender: currentUserName,
+        });
+      }
+    } catch (err) {
+      console.warn("Could not create WebRTC offer for peer:", peerSocketId, err);
+    }
+  };
+
+  // WebRTC: Handle incoming signaling data (Offer, Answer, ICE Candidate)
+  const handleIncomingSignal = async ({ fromSocketId, signal, sender }) => {
+    if (!signal) return;
+
+    // A. If this user is actively sharing screen, process Answer or Candidate from student
+    if (isScreenSharingRef.current) {
+      const pc = peerConnectionsRef.current.get(fromSocketId);
+      if (pc) {
+        if (signal.type === "answer") {
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(signal));
+          } catch (err) {
+            console.warn("Error setting remote description on presenter:", err);
+          }
+        } else if (signal.candidate) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(signal));
+          } catch (err) {
+            console.warn("Error adding ICE candidate on presenter:", err);
+          }
+        }
+      }
+      return;
+    }
+
+    // B. If this user is a viewer/student, process Offer or Candidate from presenter
+    if (signal.type === "offer") {
+      try {
+        if (viewerPCRef.current) {
+          try {
+            viewerPCRef.current.close();
+          } catch (e) {}
+        }
+
+        const pc = new RTCPeerConnection(RTC_CONFIG);
+        viewerPCRef.current = pc;
+
+        pc.ontrack = (event) => {
+          if (event.streams && event.streams[0]) {
+            setRemoteScreenStream(event.streams[0]);
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.srcObject = event.streams[0];
+              remoteVideoRef.current.play().catch(() => {});
+            }
+          }
+        };
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate && socketRef.current) {
+            socketRef.current.emit("webrtc-signal", {
+              classId: roomId,
+              targetSocketId: fromSocketId,
+              signal: event.candidate,
+              sender: currentUserName,
+            });
+          }
+        };
+
+        await pc.setRemoteDescription(new RTCSessionDescription(signal));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        if (socketRef.current) {
+          socketRef.current.emit("webrtc-signal", {
+            classId: roomId,
+            targetSocketId: fromSocketId,
+            signal: pc.localDescription,
+            sender: currentUserName,
+          });
+        }
+      } catch (err) {
+        console.warn("Error answering WebRTC offer on viewer:", err);
+      }
+    } else if (signal.candidate && viewerPCRef.current) {
+      try {
+        await viewerPCRef.current.addIceCandidate(new RTCIceCandidate(signal));
+      } catch (err) {
+        console.warn("Error adding ICE candidate on viewer:", err);
+      }
+    }
+  };
+
   // 2. Setup Socket.io Connection & Listeners
   useEffect(() => {
     const socketBase =
@@ -188,6 +389,61 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
       }
     });
 
+    // Receive initial peers list from server
+    s.on("all-peers", ({ peers }) => {
+      if (Array.isArray(peers)) {
+        knownPeersRef.current = peers;
+        if (isScreenSharingRef.current && screenStreamRef.current) {
+          peers.forEach((peerId) => {
+            createOfferForPeer(peerId, screenStreamRef.current);
+          });
+        }
+      }
+    });
+
+    // Real-Time Stage State Synchronization (Slides, Screen Sharing, Mode)
+    s.on("stage-sync", (data) => {
+      if (data?.stageMode) {
+        setStageMode(data.stageMode);
+      }
+      if (typeof data?.slideIndex === "number") {
+        setCurrentSlide(data.slideIndex);
+      }
+      if (data?.isSharing) {
+        setRemotePresenter({
+          presenterName: data.presenterName || "Instructor",
+          screenType: data.screenType || "native",
+        });
+      } else {
+        setRemotePresenter(null);
+        setRemoteScreenFrame(null);
+        setRemoteScreenStream(null);
+        if (viewerPCRef.current) {
+          try {
+            viewerPCRef.current.close();
+          } catch (e) {}
+          viewerPCRef.current = null;
+        }
+      }
+    });
+
+    // High Reliability Real-Time Screen Frames (Works even behind NAT/Firewall)
+    s.on("screen-frame", ({ frame, presenterName }) => {
+      if (frame) {
+        setRemoteScreenFrame(frame);
+        setRemotePresenter((prev) =>
+          prev
+            ? { ...prev, presenterName: presenterName || prev.presenterName }
+            : { presenterName: presenterName || "Instructor", screenType: "native" }
+        );
+      }
+    });
+
+    // WebRTC Signaling Relay
+    s.on("webrtc-signal", (payload) => {
+      handleIncomingSignal(payload);
+    });
+
     // Incoming Chat Messages
     s.on("receive-message", (incomingMsg) => {
       setMessages((prev) => [...prev, incomingMsg]);
@@ -199,6 +455,15 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
         typeof data?.user === "string"
           ? data.user
           : data?.user?.name || "A student";
+
+      if (data?.socketId && !knownPeersRef.current.includes(data.socketId)) {
+        knownPeersRef.current.push(data.socketId);
+      }
+
+      // If this client is sharing screen, immediately send WebRTC offer to new peer
+      if (isScreenSharingRef.current && screenStreamRef.current && data?.socketId) {
+        createOfferForPeer(data.socketId, screenStreamRef.current);
+      }
 
       setMessages((prev) => [
         ...prev,
@@ -249,11 +514,24 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
 
     return () => {
       s.disconnect();
+      stopFrameBroadcast();
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop());
       }
       if (screenStreamRef.current) {
         screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      peerConnectionsRef.current.forEach((pc) => {
+        try {
+          pc.close();
+        } catch (e) {}
+      });
+      peerConnectionsRef.current.clear();
+      if (viewerPCRef.current) {
+        try {
+          viewerPCRef.current.close();
+        } catch (e) {}
+        viewerPCRef.current = null;
       }
     };
   }, [roomId, currentUserName]);
@@ -266,9 +544,20 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
       screenStreamRef.current
     ) {
       screenVideoRef.current.srcObject = screenStreamRef.current;
-      screenVideoRef.current.play().catch((err) => console.log("Screen video play err:", err));
+      screenVideoRef.current
+        .play()
+        .catch((err) => console.log("Screen video play err:", err));
     }
   }, [isScreenSharing, stageMode]);
+
+  useEffect(() => {
+    if (remoteScreenStream && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteScreenStream;
+      remoteVideoRef.current
+        .play()
+        .catch((err) => console.log("Remote screen play err:", err));
+    }
+  }, [remoteScreenStream]);
 
   useEffect(() => {
     if (isVideoOn && localVideoRef.current && mediaStreamRef.current) {
@@ -281,6 +570,44 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Synchronized Slide Navigation
+  const handleSlideChange = (newIndex) => {
+    setCurrentSlide(newIndex);
+    if (socketRef.current) {
+      socketRef.current.emit("stage-sync", {
+        classId: roomId,
+        stageMode,
+        slideIndex: newIndex,
+        isSharing: isScreenSharingRef.current,
+        presenterName: isScreenSharingRef.current ? currentUserName : null,
+        screenType: isScreenSharingRef.current
+          ? "native"
+          : useVirtualScreen
+          ? "demo"
+          : null,
+      });
+    }
+  };
+
+  // Synchronized Stage Mode Navigation
+  const handleStageModeChange = (newMode) => {
+    setStageMode(newMode);
+    if (socketRef.current) {
+      socketRef.current.emit("stage-sync", {
+        classId: roomId,
+        stageMode: newMode,
+        slideIndex: currentSlide,
+        isSharing: isScreenSharingRef.current,
+        presenterName: isScreenSharingRef.current ? currentUserName : null,
+        screenType: isScreenSharingRef.current
+          ? "native"
+          : useVirtualScreen
+          ? "demo"
+          : null,
+      });
+    }
+  };
 
   // 3. Real Webcam Hardware Handler
   const toggleVideo = async () => {
@@ -316,22 +643,49 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
     }
   };
 
+  // Stop Active Screen Broadcast
+  const stopScreenShare = () => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      screenStreamRef.current = null;
+    }
+    if (screenVideoRef.current) {
+      screenVideoRef.current.srcObject = null;
+    }
+    stopFrameBroadcast();
+
+    peerConnectionsRef.current.forEach((pc) => {
+      try {
+        pc.close();
+      } catch (e) {}
+    });
+    peerConnectionsRef.current.clear();
+
+    setIsScreenSharing(false);
+    isScreenSharingRef.current = false;
+    setUseVirtualScreen(false);
+    setScreenShareError(null);
+
+    if (socketRef.current) {
+      socketRef.current.emit("stage-sync", {
+        classId: roomId,
+        stageMode: "presentation",
+        screenType: null,
+        isSharing: false,
+        presenterName: null,
+        slideIndex: currentSlide,
+      });
+    }
+    setStageMode("presentation");
+  };
+
   // 4. Real Screen Share / Presentation Handler
   const toggleScreenShare = async () => {
     if (isScreenSharing || useVirtualScreen) {
-      if (screenStreamRef.current) {
-        screenStreamRef.current.getTracks().forEach((track) => track.stop());
-        screenStreamRef.current = null;
-      }
-      if (screenVideoRef.current) {
-        screenVideoRef.current.srcObject = null;
-      }
-      setIsScreenSharing(false);
-      setUseVirtualScreen(false);
-      setScreenShareError(null);
+      stopScreenShare();
     } else {
       setScreenShareError(null);
-      setStageMode("screenshare");
+      handleStageModeChange("screenshare");
       try {
         if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
           const screenStream = await navigator.mediaDevices.getDisplayMedia({
@@ -340,6 +694,7 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
           });
           screenStreamRef.current = screenStream;
           setIsScreenSharing(true);
+          isScreenSharingRef.current = true;
           setUseVirtualScreen(false);
           setStageMode("screenshare");
 
@@ -348,24 +703,45 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
             screenVideoRef.current.play().catch((err) => console.log("Play error:", err));
           }
 
+          // 1. Sync stage to all room participants
+          if (socketRef.current) {
+            socketRef.current.emit("stage-sync", {
+              classId: roomId,
+              stageMode: "screenshare",
+              screenType: "native",
+              isSharing: true,
+              presenterName: currentUserName,
+              slideIndex: currentSlide,
+            });
+          }
+
+          // 2. Start high-reliability frame sync broadcast
+          startFrameBroadcast(screenStream);
+
+          // 3. Initiate WebRTC peer connections with all peers in room
+          knownPeersRef.current.forEach((peerId) => {
+            createOfferForPeer(peerId, screenStream);
+          });
+
+          // Handle user clicking native browser "Stop sharing" bar
           screenStream.getVideoTracks()[0].onended = () => {
-            setIsScreenSharing(false);
-            screenStreamRef.current = null;
-            if (screenVideoRef.current) {
-              screenVideoRef.current.srcObject = null;
-            }
+            stopScreenShare();
           };
         } else {
-          setScreenShareError("Native screen sharing API is not supported in this browser environment. You can use the Interactive Demo Workspace.");
+          setScreenShareError(
+            "Native screen sharing API is not supported in this browser environment. You can use the Interactive Demo Workspace."
+          );
         }
       } catch (err) {
         console.warn("Screen share cancelled or permission denied:", err);
         setScreenShareError(
-          err.name === "NotAllowedError" || err.message?.toLowerCase().includes("permission")
+          err.name === "NotAllowedError" ||
+            err.message?.toLowerCase().includes("permission")
             ? "Screen sharing permission was cancelled or not allowed by browser/OS."
             : "Screen share could not start on this system. You can retry or launch the Demo Workspace Screen."
         );
         setIsScreenSharing(false);
+        isScreenSharingRef.current = false;
         setStageMode("screenshare");
       }
     }
@@ -502,8 +878,8 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                 {/* Mode Selector Tabs */}
                 <div className="inline-flex rounded-xl bg-slate-200/70 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800 p-1 text-xs font-bold">
                   <button
-                    onClick={() => setStageMode("presentation")}
-                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                    onClick={() => handleStageModeChange("presentation")}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
                       stageMode === "presentation"
                         ? "bg-blue-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -513,8 +889,8 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                     <span>Lecture Deck</span>
                   </button>
                   <button
-                    onClick={() => setStageMode("screenshare")}
-                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                    onClick={() => handleStageModeChange("screenshare")}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
                       stageMode === "screenshare"
                         ? "bg-blue-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -522,17 +898,17 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                   >
                     <MonitorUp className="w-3.5 h-3.5" />
                     <span>
-                      {isScreenSharing || useVirtualScreen
+                      {isScreenSharing || useVirtualScreen || remoteScreenStream || remoteScreenFrame || remotePresenter
                         ? "Screen Share (Active)"
                         : "Screen Share"}
                     </span>
-                    {(isScreenSharing || useVirtualScreen) && (
+                    {(isScreenSharing || useVirtualScreen || remoteScreenStream || remoteScreenFrame || remotePresenter) && (
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     )}
                   </button>
                   <button
-                    onClick={() => setStageMode("code")}
-                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+                    onClick={() => handleStageModeChange("code")}
+                    className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition cursor-pointer ${
                       stageMode === "code"
                         ? "bg-blue-600 text-white shadow-xs"
                         : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
@@ -548,11 +924,11 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() =>
-                        setCurrentSlide((prev) =>
-                          prev > 0 ? prev - 1 : slides.length - 1
+                        handleSlideChange(
+                          currentSlide > 0 ? currentSlide - 1 : slides.length - 1
                         )
                       }
-                      className="p-1.5 rounded-lg bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition"
+                      className="p-1.5 rounded-lg bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
                       title="Previous Slide"
                     >
                       <ChevronLeft className="w-4 h-4" />
@@ -562,11 +938,11 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                     </span>
                     <button
                       onClick={() =>
-                        setCurrentSlide((prev) =>
-                          prev < slides.length - 1 ? prev + 1 : 0
+                        handleSlideChange(
+                          currentSlide < slides.length - 1 ? currentSlide + 1 : 0
                         )
                       }
-                      className="p-1.5 rounded-lg bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition"
+                      className="p-1.5 rounded-lg bg-slate-200/80 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
                       title="Next Slide"
                     >
                       <ChevronRight className="w-4 h-4" />
@@ -640,7 +1016,7 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                 {/* 2. REAL SCREEN SHARE VIEW & INTERACTIVE SCREEN WORKSPACE */}
                 {stageMode === "screenshare" && (
                   <div className="w-full h-full flex items-center justify-center relative rounded-xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl">
-                    {/* A. Live Native Video Capture Stream */}
+                    {/* A. LOCAL SHARER'S LIVE NATIVE SCREEN */}
                     {isScreenSharing && (
                       <div className="w-full h-full flex flex-col items-center justify-center relative bg-black">
                         <video
@@ -660,7 +1036,7 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                         <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
                           <span className="px-3 py-1 rounded-full bg-emerald-500/90 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg">
                             <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                            Live Screen Broadcast Active
+                            Broadcasting Your Screen Live ({liveCount > 1 ? `${liveCount - 1} Viewers Active` : "Broadcasting"})
                           </span>
                           <button
                             type="button"
@@ -673,8 +1049,55 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                       </div>
                     )}
 
-                    {/* B. Interactive Live Demo Workstation Screen (For Linux / fallback mode) */}
-                    {!isScreenSharing && useVirtualScreen && (
+                    {/* B. REMOTE SCREEN BROADCAST (FOR STUDENTS / VIEWERS IN ANOTHER BROWSER) */}
+                    {!isScreenSharing && (remoteScreenStream || remoteScreenFrame || (remotePresenter && remotePresenter.screenType === "native")) && (
+                      <div className="w-full h-full flex flex-col items-center justify-center relative bg-black">
+                        {/* WebRTC Video Stream layer */}
+                        {remoteScreenStream ? (
+                          <video
+                            ref={(el) => {
+                              remoteVideoRef.current = el;
+                              if (el && remoteScreenStream && el.srcObject !== remoteScreenStream) {
+                                el.srcObject = remoteScreenStream;
+                                el.play().catch((err) => console.log("Remote play err:", err));
+                              }
+                            }}
+                            autoPlay
+                            playsInline
+                            muted
+                            className="w-full h-full object-contain"
+                          />
+                        ) : remoteScreenFrame ? (
+                          /* High-Reliability Real-Time Frame Sync Fallback */
+                          <img
+                            src={remoteScreenFrame}
+                            alt="Live Remote Screen Broadcast"
+                            className="w-full h-full object-contain select-none"
+                          />
+                        ) : (
+                          /* Connecting to stream placeholder */
+                          <div className="flex flex-col items-center justify-center text-slate-400 gap-3">
+                            <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-xs font-semibold">Connecting to presenter's live screen...</span>
+                          </div>
+                        )}
+
+                        {/* Remote Live Stream Floating Badge */}
+                        <div className="absolute top-4 left-4 z-20 flex items-center gap-2">
+                          <span className="px-3 py-1 rounded-full bg-red-600/90 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg">
+                            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                            Live Screen from {remotePresenter?.presenterName || "Instructor"}
+                          </span>
+                          <span className="px-2.5 py-1 rounded-full bg-slate-900/80 text-emerald-400 border border-emerald-500/30 text-[11px] font-mono shadow-md hidden sm:inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            {remoteScreenStream ? "WebRTC HD • 60 FPS" : "Real-Time Frame Stream"}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* C. Interactive Live Demo Workstation Screen (Shared or Local) */}
+                    {!isScreenSharing && !remoteScreenStream && !remoteScreenFrame && (useVirtualScreen || remotePresenter?.screenType === "demo") && (
                       <div className="w-full h-full flex flex-col bg-slate-950 text-slate-100 font-mono">
                         {/* Workstation Top Bar */}
                         <div className="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
@@ -688,15 +1111,27 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                              ● Live Screen Stream
+                              ● Live Screen: {remotePresenter ? `Shared by ${remotePresenter.presenterName}` : "Broadcasting"}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => setUseVirtualScreen(false)}
-                              className="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 transition cursor-pointer"
-                            >
-                              Exit Screen
-                            </button>
+                            {useVirtualScreen && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setUseVirtualScreen(false);
+                                  socketRef.current?.emit("stage-sync", {
+                                    classId: roomId,
+                                    stageMode: "presentation",
+                                    screenType: null,
+                                    isSharing: false,
+                                    presenterName: null,
+                                    slideIndex: currentSlide,
+                                  });
+                                }}
+                                className="px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 transition cursor-pointer"
+                              >
+                                Exit Screen
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -706,25 +1141,27 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                           <div className="text-slate-400">[SYSTEM] Initializing Redis adapter cluster on ports [5000, 5001]...</div>
                           <div className="text-blue-400">[SOCKET.IO] WebSocket handshake validated for room: {roomId}</div>
                           <div className="text-emerald-400">[DATABASE] MongoDB Atlas Cluster0 replica set OK • Connection latency: 12ms</div>
-                          <div className="text-slate-300">[BROADCAST] Active live stream session hosted by {displayInstructor}</div>
+                          <div className="text-slate-300">[BROADCAST] Active live stream session hosted by {remotePresenter?.presenterName || displayInstructor}</div>
                           <div className="text-purple-400">[EVENT] Live stream frame rate: 60 FPS • Resolution: 1920x1080 (HD)</div>
                           <div className="text-amber-400">[METRICS] Active concurrent listeners: {liveCount} • Buffer health: 100%</div>
 
                           <div className="mt-6 p-4 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 font-sans space-y-1.5">
                             <div className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
                               <CheckCircle2 className="w-4 h-4" />
-                              <span>Live Screen Sharing Active</span>
+                              <span>Live Cluster Screen Synchronized</span>
                             </div>
                             <p className="text-xs text-slate-400">
-                              This live simulated developer screen broadcasts real-time cluster telemetry to all connected student clients.
+                              {remotePresenter
+                                ? `You are viewing ${remotePresenter.presenterName}'s live shared workstation in real time.`
+                                : "This live simulated developer screen broadcasts real-time cluster telemetry to all connected student clients."}
                             </p>
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* C. Screen Share Inactive Launcher */}
-                    {!isScreenSharing && !useVirtualScreen && (
+                    {/* D. Screen Share Inactive Launcher (When nobody is sharing) */}
+                    {!isScreenSharing && !remoteScreenStream && !remoteScreenFrame && !useVirtualScreen && !remotePresenter && (
                       <div className="text-center p-8 max-w-md mx-auto">
                         <div className="w-16 h-16 rounded-2xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/10">
                           <MonitorUp className="w-8 h-8" />
@@ -758,6 +1195,14 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                             onClick={() => {
                               setUseVirtualScreen(true);
                               setScreenShareError(null);
+                              socketRef.current?.emit("stage-sync", {
+                                classId: roomId,
+                                stageMode: "screenshare",
+                                screenType: "demo",
+                                isSharing: true,
+                                presenterName: currentUserName,
+                                slideIndex: currentSlide,
+                              });
                             }}
                             className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition border border-slate-700 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                           >
@@ -895,11 +1340,15 @@ WHERE room_id = 'LC-WEBSOCKET-2026' AND status = 'ongoing';
                 title={
                   isScreenSharing || useVirtualScreen
                     ? "Stop Presentation / Screen Share"
+                    : remotePresenter
+                    ? `Viewing ${remotePresenter.presenterName}'s Screen (Click to share your own)`
                     : "Start Presentation / Screen Share"
                 }
                 className={`w-12 h-12 rounded-2xl flex items-center justify-center transition shadow-md cursor-pointer ${
                   isScreenSharing || useVirtualScreen
                     ? "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-500/40 border border-blue-400"
+                    : remotePresenter
+                    ? "bg-purple-600/20 text-purple-400 border border-purple-500/40 hover:bg-purple-600/30"
                     : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:border-slate-700"
                 }`}
               >

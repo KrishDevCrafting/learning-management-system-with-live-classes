@@ -59,6 +59,9 @@ const io = new Server(server, {
   },
 });
 
+// In-Memory Stage State Tracker per Live Room (e.g. Slide Number, Screen Share status, Presenter)
+const activeRoomStages = {};
+
 io.on("connection", (socket) => {
   console.log(`⚡ Client connected to LMS Socket: ${socket.id}`);
 
@@ -73,6 +76,16 @@ io.on("connection", (socket) => {
     // Send updated user count to everyone in this class room
     io.to(classId).emit("room-users-count", { count });
 
+    // Send existing peers in this room to newly connected peer (for WebRTC connection establishment)
+    const peersInRoom = Array.from(io.sockets.adapter.rooms.get(classId) || [])
+      .filter((id) => id !== socket.id);
+    socket.emit("all-peers", { peers: peersInRoom });
+
+    // If room already has an active presentation or screen share, sync it to joining student
+    if (activeRoomStages[classId]) {
+      socket.emit("stage-sync", activeRoomStages[classId]);
+    }
+
     // Notify peers that a new user joined
     socket.to(classId).emit("user-joined", {
       user: socket.userName,
@@ -81,7 +94,47 @@ io.on("connection", (socket) => {
     });
   });
 
-  // 2. Chat Message
+  // 2. Real-Time Stage Synchronization (Slides, Stage Mode, Screen Sharing)
+  socket.on("stage-sync", (data) => {
+    if (data?.classId) {
+      activeRoomStages[data.classId] = {
+        ...activeRoomStages[data.classId],
+        ...data,
+        updatedAt: Date.now(),
+      };
+      // Broadcast state update to all other connected peers in this room
+      socket.to(data.classId).emit("stage-sync", activeRoomStages[data.classId]);
+    }
+  });
+
+  // 3. WebRTC Signaling Relay for Real Peer-to-Peer Screen & Video Streaming
+  socket.on("webrtc-signal", ({ classId, targetSocketId, signal, sender }) => {
+    if (targetSocketId) {
+      io.to(targetSocketId).emit("webrtc-signal", {
+        fromSocketId: socket.id,
+        signal,
+        sender: sender || socket.userName,
+      });
+    } else if (classId) {
+      socket.to(classId).emit("webrtc-signal", {
+        fromSocketId: socket.id,
+        signal,
+        sender: sender || socket.userName,
+      });
+    }
+  });
+
+  // 4. Real-Time Screen Frame Broadcast (High-reliability Canvas Stream Fallback)
+  socket.on("screen-frame", ({ classId, frame, presenterName }) => {
+    if (classId && frame) {
+      socket.to(classId).emit("screen-frame", {
+        frame,
+        presenterName: presenterName || socket.userName,
+      });
+    }
+  });
+
+  // 5. Chat Message
   socket.on("send-message", ({ classId, message, user }) => {
     io.to(classId).emit("receive-message", {
       message,
@@ -93,7 +146,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  // 3. Raise Hand Event
+  // 6. Raise Hand Event
   socket.on("raise-hand", ({ classId, user, isHandRaised }) => {
     const sender = typeof user === "string" ? user : user?.name || "Student";
     io.to(classId).emit("hand-raised-update", {
@@ -106,7 +159,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  // 4. Disconnect Handling
+  // 7. Disconnect Handling
   socket.on("disconnecting", () => {
     for (const room of socket.rooms) {
       if (room !== socket.id) {
@@ -116,6 +169,11 @@ io.on("connection", (socket) => {
         );
         socket.to(room).emit("room-users-count", { count: remaining });
         socket.to(room).emit("user-left", { user: socket.userName });
+
+        // Clean up stage if last participant left
+        if (remaining <= 1 && !io.sockets.adapter.rooms.get(room)?.size) {
+          delete activeRoomStages[room];
+        }
       }
     }
   });
