@@ -1,7 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../Context/AuthContext";
-import ThemeToggle from "./ThemeToggle";
 import { useSidebar } from "../Context/SidebarContext";
 import {
   LayoutDashboard,
@@ -103,17 +102,14 @@ export default function Sidebar() {
               </span>
             </div>
           </Link>
-          <div className="flex items-center gap-1 shrink-0">
-            <ThemeToggle />
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              title="Collapse Sidebar"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-            >
-              <PanelLeftClose className="w-4 h-4" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            title="Collapse Sidebar"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+          >
+            <PanelLeftClose className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Navigation Items */}
