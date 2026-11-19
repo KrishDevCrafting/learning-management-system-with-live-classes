@@ -43,6 +43,7 @@ export default function Sidebar() {
       badgeColor:
         "bg-blue-500/10 dark:bg-blue-500/20 text-blue-500 border border-blue-500/20",
     },
+    { label: "Dashboard", path: "/", icon: LayoutDashboard },
     { label: "Course Catalog", path: "/courses", icon: BookOpen },
     {
       label: "Live Classrooms",
@@ -52,6 +53,7 @@ export default function Sidebar() {
       badgeColor:
         "bg-red-500/10 dark:bg-red-500/20 text-red-500 border border-red-500/20",
     },
+    { label: "My Learning", path: "/my-learning", icon: Terminal },
     { label: "Assignments", path: "/assignments", icon: FileText },
     { label: "Settings", path: "/settings", icon: Settings },
   ];
@@ -60,22 +62,40 @@ export default function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 flex flex-col justify-between z-50 shadow-xs font-sans transition-colors duration-200">
-      {/* Brand Header */}
+      {/* Brand Header with Custom Logo */}
       <div className="flex flex-col">
-        <div className="h-16 px-6 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-              <GraduationCap className="w-5 h-5" />
+        <div className="h-16 px-5 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+          <Link to="/" className="flex items-center gap-2.5 group">
+            {/* Custom Modern SVG Logo */}
+            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25 group-hover:scale-105 transition-all duration-200 shrink-0">
+              <svg
+                className="w-5 h-5 text-white"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+                <path d="M6 12v5c0 2 3 3 6 3s6-1 6-3v-5" />
+              </svg>
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-white dark:ring-slate-900"></span>
             </div>
-            <div className="flex flex-col">
-              <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-white leading-none">
-                EduConnect
-              </span>
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-extrabold text-[15px] tracking-tight text-slate-900 dark:text-white leading-none">
+                  EduConnect
+                </span>
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-800/60 leading-none">
+                  LMS
+                </span>
+              </div>
               <span className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-semibold mt-1">
-                Engineering LMS
+                Engineering Platform
               </span>
             </div>
-          </div>
+          </Link>
           <ThemeToggle />
         </div>
 
@@ -154,26 +174,26 @@ export default function Sidebar() {
             Mode
           </span>
           <div className="inline-flex items-center rounded-lg bg-slate-200/60 dark:bg-slate-800 p-0.5">
-            <button
-              type="button"
+            <Link
+              to="/"
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                !isInstructor
+                location.pathname !== "/instructor/dashboard"
                   ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               Student
-            </button>
-            <button
-              type="button"
+            </Link>
+            <Link
+              to="/instructor/dashboard"
               className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                isInstructor
+                location.pathname === "/instructor/dashboard"
                   ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               Instructor
-            </button>
+            </Link>
           </div>
         </div>
       </div>

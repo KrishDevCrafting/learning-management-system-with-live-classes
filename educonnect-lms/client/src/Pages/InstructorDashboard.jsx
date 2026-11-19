@@ -214,14 +214,14 @@ export default function InstructorDashboard() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
-              <span>App</span>
+              <span>EduConnect</span>
               <ChevronRight className="w-3.5 h-3.5" />
               <span className="text-blue-600 dark:text-blue-400 font-semibold">
                 Instructor Studio
               </span>
             </div>
             <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Welcome, {user?.name || "Instructor"} 🎓
+              Instructor Studio
             </h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xl">
               Create courses, schedule live sessions, and manage your teaching content from one unified studio.
@@ -867,3 +867,4 @@ export default function InstructorDashboard() {
     </div>
   );
 }
+

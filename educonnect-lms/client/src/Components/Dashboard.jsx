@@ -198,19 +198,17 @@ export default function Dashboard() {
     <div className="flex-1 min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200">
       {/* 1. Header Toolbar */}
       <header className="sticky top-0 z-40 h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-8 flex items-center justify-between shadow-xs transition-colors duration-200">
-        {/* Breadcrumb & Track */}
+        {/* Breadcrumb */}
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
-            <span>App</span>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            <span>Dashboard</span>
+            <span>EduConnect</span>
             <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
             <span className="text-blue-600 dark:text-blue-400 font-semibold">
-              Overview
+              Dashboard
             </span>
           </div>
           <span className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold mt-0.5">
-            TERM 02 • ADVANCED DISTRIBUTED TRACK
+            Student Overview
           </span>
         </div>
 
@@ -391,7 +389,7 @@ export default function Dashboard() {
                 </div>
 
                 <div className="p-2.5 px-4 bg-slate-50 dark:bg-slate-800/80 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400">EduConnect Live Radar</span>
+                  <span className="text-slate-400">EduConnect LMS</span>
                   <Link
                     to="/assignments"
                     onClick={() => setShowNotifications(false)}
@@ -416,116 +414,102 @@ export default function Dashboard() {
 
       {/* 2. Main Content Container */}
       <main className="p-8 max-w-7xl mx-auto flex flex-col gap-8">
-        {/* Welcome Hero Banner */}
-        <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs p-8 transition-colors duration-200">
-          <div className="relative z-10 flex flex-col gap-6">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div className="flex flex-col gap-1 max-w-2xl">
-                <div className="inline-flex items-center gap-2 mb-1">
-                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold tracking-wide flex items-center gap-1.5 border border-emerald-200 dark:border-emerald-800">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    ACTIVE COHORT SESSION
-                  </span>
-                  <span className="text-[11px] text-slate-400 dark:text-slate-500 font-semibold">
-                    Q2 MILESTONE ENGINE
-                  </span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                  Welcome back, {user?.name || "Krish"} 👋
-                </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  You have active distributed systems classes available today •
-                  Interactive streaming radar and progress tracking enabled.
-                </p>
-              </div>
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+              Dashboard
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Overview of your active courses, scheduled live lectures, and progress.
+            </p>
+          </div>
 
-              <div className="flex items-center gap-2.5">
-                <Link
-                  to="/courses"
-                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition"
-                >
-                  All Courses
-                </Link>
-                <Link
-                  to="/live/LC-WEBSOCKET-2026"
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5"
-                >
-                  <PlayCircle className="w-4 h-4" />
-                  <span>Join Live Stream</span>
-                </Link>
+          <div className="flex items-center gap-2.5">
+            <Link
+              to="/courses"
+              className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 text-xs font-bold transition shadow-xs"
+            >
+              Browse Catalog
+            </Link>
+            <Link
+              to="/live"
+              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+            >
+              <PlayCircle className="w-4 h-4" />
+              <span>Join Live Classroom</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Metrics Overview Strip */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* Stat 1 */}
+          <div className="flex items-center gap-3.5 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold truncate">
+                Active Courses
+              </span>
+              <span className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
+                {courses.length} Available
+              </span>
+            </div>
+          </div>
+
+          {/* Stat 2 */}
+          <div className="flex items-center gap-3.5 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <PieChart className="w-5 h-5" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold truncate">
+                Avg. Completion
+              </span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
+                  84%
+                </span>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
+                  ↑ 4%
+                </span>
               </div>
             </div>
+          </div>
 
-            {/* Metric Strip Component */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-              {/* Stat 1 */}
-              <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
-                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                  <Layers className="w-5 h-5" />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold truncate">
-                    Active Courses
-                  </span>
-                  <span className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
-                    {courses.length} Available
-                  </span>
-                </div>
-              </div>
+          {/* Stat 3 */}
+          <div className="flex items-center gap-3.5 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold truncate">
+                Study Hours
+              </span>
+              <span className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
+                38 hrs
+              </span>
+            </div>
+          </div>
 
-              {/* Stat 2 */}
-              <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                  <PieChart className="w-5 h-5" />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold truncate">
-                    Avg. Completion
-                  </span>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
-                      84%
-                    </span>
-                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
-                      ↑ 4.2%
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Stat 3 */}
-              <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
-                <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                  <Clock className="w-5 h-5" />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold truncate">
-                    Teaching Hours
-                  </span>
-                  <span className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
-                    38 hrs
-                  </span>
-                </div>
-              </div>
-
-              {/* Stat 4 */}
-              <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
-                <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
-                  <AlertCircle className="w-5 h-5" />
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold truncate">
-                    Pending Tasks
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
-                      2
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-400 text-[10px] font-bold">
-                      Urgent
-                    </span>
-                  </div>
-                </div>
+          {/* Stat 4 */}
+          <div className="flex items-center gap-3.5 p-4 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold truncate">
+                Pending Tasks
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight">
+                  2
+                </span>
+                <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 text-[10px] font-bold">
+                  In Review
+                </span>
               </div>
             </div>
           </div>
